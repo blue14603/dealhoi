@@ -1,0 +1,32 @@
+{
+  "_comment": "Production-safe reference data: spending categories, merchants and bank names. Contains NO card benefits or promotions. Merchants are coverage areas, not claims that any bank currently offers a promotion there.",
+  "banks": [
+    { "slug": "techcombank", "name": "Techcombank", "website_url": "https://techcombank.com" },
+    { "slug": "tpbank", "name": "TPBank", "website_url": "https://tpb.vn" },
+    { "slug": "vib", "name": "VIB", "website_url": "https://www.vib.com.vn" }
+  ],
+  "categories": [
+    { "slug": "ca-phe", "name": "Cà phê & đồ uống", "icon": "coffee", "description": "Quán cà phê, trà sữa và đồ uống.", "aliases": ["cafe", "coffee", "cà phê", "trà sữa", "đồ uống"], "sort_order": 10 },
+    { "slug": "mua-sam-truc-tuyen", "name": "Mua sắm trực tuyến", "icon": "shopping-bag", "description": "Sàn thương mại điện tử và mua sắm online.", "aliases": ["online", "mua sắm", "thương mại điện tử", "ecommerce", "shopping"], "sort_order": 20 },
+    { "slug": "dien-tu-cong-nghe", "name": "Điện tử & công nghệ", "icon": "smartphone", "description": "Điện thoại, máy tính và thiết bị điện tử.", "aliases": ["điện thoại", "iphone", "ipad", "macbook", "laptop", "máy tính", "điện máy", "electronics"], "sort_order": 30 },
+    { "slug": "du-lich-hang-khong", "name": "Du lịch & hàng không", "icon": "plane", "description": "Vé máy bay, khách sạn và dịch vụ du lịch.", "aliases": ["vé máy bay", "máy bay", "hàng không", "airline", "du lịch", "khách sạn", "travel", "phòng chờ"], "sort_order": 40 },
+    { "slug": "giai-tri-su-kien", "name": "Giải trí & sự kiện", "icon": "ticket", "description": "Vé concert, sự kiện, rạp chiếu phim.", "aliases": ["concert", "vé concert", "sự kiện", "rạp phim", "xem phim", "giải trí", "ca nhạc"], "sort_order": 50 },
+    { "slug": "chi-tieu-chung", "name": "Chi tiêu chung", "icon": "credit-card", "description": "Quyền lợi áp dụng cho hầu hết giao dịch hợp lệ.", "aliases": [], "is_browsable": false, "sort_order": 900 }
+  ],
+  "merchants": [
+    { "slug": "starbucks", "name": "Starbucks", "category_slug": "ca-phe", "website_url": "https://www.starbucks.vn", "aliases": ["starbuck", "sbux"], "is_featured": true },
+    { "slug": "highlands-coffee", "name": "Highlands Coffee", "category_slug": "ca-phe", "website_url": "https://www.highlandscoffee.com.vn", "aliases": ["highland", "highlands"] },
+    { "slug": "phuc-long", "name": "Phúc Long", "category_slug": "ca-phe", "website_url": "https://phuclong.com.vn", "aliases": ["phuc long"] },
+    { "slug": "shopee", "name": "Shopee", "category_slug": "mua-sam-truc-tuyen", "website_url": "https://shopee.vn", "aliases": ["shoppe", "shopee mall"], "is_featured": true },
+    { "slug": "lazada", "name": "Lazada", "category_slug": "mua-sam-truc-tuyen", "website_url": "https://www.lazada.vn", "aliases": [] },
+    { "slug": "tiki", "name": "Tiki", "category_slug": "mua-sam-truc-tuyen", "website_url": "https://tiki.vn", "aliases": [] },
+    { "slug": "apple", "name": "Apple", "category_slug": "dien-tu-cong-nghe", "website_url": "https://www.apple.com/vn/", "aliases": ["iphone", "ipad", "macbook", "airpods", "apple watch", "apple store"], "is_featured": true },
+    { "slug": "the-gioi-di-dong", "name": "Thế Giới Di Động", "category_slug": "dien-tu-cong-nghe", "website_url": "https://www.thegioididong.com", "aliases": ["tgdd", "thegioididong"] },
+    { "slug": "cellphones", "name": "CellphoneS", "category_slug": "dien-tu-cong-nghe", "website_url": "https://cellphones.com.vn", "aliases": ["cellphone s"] },
+    { "slug": "vietnam-airlines", "name": "Vietnam Airlines", "category_slug": "du-lich-hang-khong", "website_url": "https://www.vietnamairlines.com", "aliases": ["vna", "vé máy bay vietnam airlines"], "is_featured": true },
+    { "slug": "vietjet-air", "name": "Vietjet Air", "category_slug": "du-lich-hang-khong", "website_url": "https://www.vietjetair.com", "aliases": ["vietjet", "vj"] },
+    { "slug": "bamboo-airways", "name": "Bamboo Airways", "category_slug": "du-lich-hang-khong", "website_url": "https://www.bambooairways.com", "aliases": ["bamboo"] },
+    { "slug": "ticketbox", "name": "Ticketbox", "category_slug": "giai-tri-su-kien", "website_url": "https://ticketbox.vn", "aliases": ["vé concert ticketbox"], "is_featured": true },
+    { "slug": "cgv", "name": "CGV Cinemas", "category_slug": "giai-tri-su-kien", "website_url": "https://www.cgv.vn", "aliases": ["cgv", "rạp cgv"] }
+  ]
+}

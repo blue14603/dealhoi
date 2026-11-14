@@ -1,0 +1,2 @@
+slug,bank_slug,name,network,card_tier,annual_fee_vnd,annual_fee_waiver_terms,minimum_income_vnd,description,image_url,official_url,source_url,verification_status,is_active,is_featured
+example-card-slug,techcombank,"Tên thẻ chính xác theo ngân hàng",Visa,Platinum,,"Điều kiện miễn phí thường niên (nếu có)",,"Mô tả ngắn",,https://example.com/official-card-page,https://example.com/official-card-page,draft,true,false

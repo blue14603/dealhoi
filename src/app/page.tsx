@@ -1,103 +1,113 @@
-import Image from "next/image";
+import { ArrowRight, BadgeCheck, Calculator, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { CategoryChip } from "@/components/cards/category-chip";
+import { CreditCardTile } from "@/components/cards/credit-card-tile";
+import { MerchantCard } from "@/components/cards/merchant-card";
+import { EmptyState } from "@/components/common/empty-state";
+import { DealCard } from "@/components/deals/deal-card";
+import { SearchBox } from "@/components/search/search-box";
+import { config } from "@/lib/config";
+import { NO_VERIFIED_DATA } from "@/lib/copy";
+import { todayInVietnam } from "@/lib/domain/validity";
+import { listActiveDeals, listCards, listCategories, listMerchants } from "@/lib/services/catalog";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+function Section({ title, href, linkLabel, children }: { title: string; href?: string; linkLabel?: string; children: React.ReactNode }) {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <section className="mt-14" aria-labelledby={`h-${title}`}>
+      <div className="mb-5 flex items-end justify-between gap-4">
+        <h2 id={`h-${title}`} className="text-xl font-bold sm:text-2xl">
+          {title}
+        </h2>
+        {href && (
+          <Link href={href} className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-brand hover:underline">
+            {linkLabel} <ArrowRight className="size-4" aria-hidden />
+          </Link>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+export default async function HomePage() {
+  const today = todayInVietnam();
+  const [categories, merchants, featuredDeals, featuredCards] = await Promise.all([
+    listCategories({ browsableOnly: true }),
+    listMerchants({ featuredOnly: true }),
+    listActiveDeals({ featuredOnly: true, limit: 50 }),
+    listCards({ featuredOnly: true }),
+  ]);
+  const offerCounts = await Promise.all(
+    merchants.map((m) => listActiveDeals({ forMerchant: { id: m.id, categoryId: m.category.id } }).then((d) => d.filter((x) => x.merchantScope === "specific_merchant").length)),
+  );
+
+  return (
+    <>
+      <section className="pt-12 pb-4 text-center sm:pt-20">
+        <h1 className="mx-auto max-w-3xl text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+          Thẻ nào có lợi nhất cho <span className="text-brand">thứ bạn sắp mua?</span>
+        </h1>
+        <p className="mx-auto mt-4 max-w-2xl text-base text-ink-muted sm:text-lg">
+          So sánh ưu đãi thẻ tín dụng theo cửa hàng và thói quen chi tiêu. Mỗi ưu đãi đều có nguồn, ngày xác minh và điều kiện rõ ràng.
+        </p>
+        <div className="mx-auto mt-8 max-w-2xl">
+          <SearchBox />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        <div className="mx-auto mt-4 flex max-w-3xl flex-wrap justify-center gap-2" aria-label="Gợi ý tìm kiếm">
+          {categories.map((c) => (
+            <CategoryChip key={c.slug} slug={c.slug} name={c.name} icon={c.icon} />
+          ))}
+        </div>
+        <ul className="mx-auto mt-10 grid max-w-4xl gap-3 text-left text-sm sm:grid-cols-3">
+          <li className="flex gap-3 rounded-2xl bg-surface p-4">
+            <BadgeCheck className="size-5 shrink-0 text-savings" aria-hidden />
+            <span>Chỉ hiển thị ưu đãi đã xác minh, kèm nguồn chính thức.</span>
+          </li>
+          <li className="flex gap-3 rounded-2xl bg-surface p-4">
+            <Calculator className="size-5 shrink-0 text-brand" aria-hidden />
+            <span>Tính tiết kiệm thực tế theo số tiền, mức tối đa và điều kiện.</span>
+          </li>
+          <li className="flex gap-3 rounded-2xl bg-surface p-4">
+            <ShieldCheck className="size-5 shrink-0 text-info" aria-hidden />
+            <span>Không cần đăng ký. DealHoi không nhận hồ sơ mở thẻ.</span>
+          </li>
+        </ul>
+      </section>
+
+      <Section title="Cửa hàng phổ biến để so sánh" href="/uu-dai" linkLabel="Tất cả ưu đãi">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {merchants.map((m, i) => (
+            <MerchantCard key={m.slug} merchant={m} offerCount={offerCounts[i]} />
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Ưu đãi nổi bật" href="/uu-dai" linkLabel="Xem tất cả">
+        {featuredDeals.length ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredDeals.slice(0, 6).map((d) => (
+              <DealCard key={d.id} deal={d} today={today} staleAfterDays={config.staleAfterDays} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="Chưa có ưu đãi nổi bật">{NO_VERIFIED_DATA}</EmptyState>
+        )}
+      </Section>
+
+      <Section title="Thẻ tín dụng nổi bật" href="/the-tin-dung" linkLabel="Danh mục thẻ">
+        {featuredCards.length ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {featuredCards.slice(0, 4).map((c) => (
+              <CreditCardTile key={c.slug} card={c} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="Chưa có thẻ đã xác minh">DealHoi đang cập nhật thông tin thẻ từ nguồn chính thức của ngân hàng.</EmptyState>
+        )}
+        <p className="mt-4 text-xs text-ink-subtle">“Nổi bật” là lựa chọn của biên tập viên, không phải xếp hạng mức độ phổ biến.</p>
+      </Section>
+    </>
   );
 }

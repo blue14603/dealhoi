@@ -1,0 +1,68 @@
+{
+  "_comment": "Template for a DealHoi import bundle. Every key is optional; records are matched by slug (banks, categories, merchants, cards), url (sources) and import_key (deals). Money is integer VND. Use null for UNKNOWN values: minimum_spend_vnd = 0 only when the source says there is no minimum; cap_is_unlimited = true only when the source says there is no cap. Uploads through /admin always land as drafts for review.",
+  "banks": [
+    { "slug": "techcombank", "name": "Techcombank", "website_url": "https://techcombank.com", "logo_url": null }
+  ],
+  "sources": [
+    {
+      "url": "https://example.com/official-promotion-page",
+      "publisher": "Tên ngân hàng",
+      "source_type": "official_bank",
+      "source_excerpt": "Trích dẫn nguyên văn các điều khoản quan trọng",
+      "published_at": null,
+      "retrieved_at": "2026-11-14T09:00:00+07:00",
+      "verified_at": null,
+      "verification_notes": null
+    }
+  ],
+  "cards": [
+    {
+      "slug": "example-card-slug",
+      "bank_slug": "techcombank",
+      "name": "Tên thẻ chính xác theo ngân hàng",
+      "network": "Visa",
+      "card_tier": "Platinum",
+      "annual_fee_vnd": null,
+      "annual_fee_waiver_terms": null,
+      "minimum_income_vnd": null,
+      "description": null,
+      "image_url": null,
+      "official_url": "https://example.com/official-card-page",
+      "source_url": "https://example.com/official-promotion-page",
+      "verification_status": "draft",
+      "is_active": true,
+      "is_featured": false
+    }
+  ],
+  "deals": [
+    {
+      "import_key": "techcombank-2026-12-example",
+      "title": "Tiêu đề ưu đãi",
+      "description": "Mô tả ngắn lấy từ nguồn chính thức",
+      "merchant_slug": "starbucks",
+      "category_slug": "ca-phe",
+      "benefit_type": "cashback",
+      "offer_type": "temporary",
+      "percentage": 10,
+      "fixed_amount_vnd": null,
+      "maximum_benefit_vnd": 50000,
+      "cap_period": "transaction",
+      "cap_is_unlimited": null,
+      "minimum_spend_vnd": 100000,
+      "minimum_spend_period": "transaction",
+      "installment_months": null,
+      "installment_fee_vnd": null,
+      "eligibility_terms": null,
+      "terms_and_conditions": null,
+      "payment_channel": "offline",
+      "merchant_scope": "specific_merchant",
+      "start_date": "2026-12-01",
+      "end_date": "2026-12-31",
+      "source_url": "https://example.com/official-promotion-page",
+      "verification_status": "draft",
+      "publication_status": "draft",
+      "is_featured": false,
+      "cards": [{ "card_slug": "example-card-slug", "additional_eligibility_terms": null }]
+    }
+  ]
+}
