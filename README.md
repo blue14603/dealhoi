@@ -8,6 +8,8 @@ DealHoi is **not** a bank, lender, payment processor or card application service
 
 ---
 
+**Product documents:** [MVP product audit (16/11/2026)](docs/product-audit-2026-11-16.md) · [User research & validation plan](docs/user-research-plan.md)
+
 ## Contents
 
 1. [Features](#features)
