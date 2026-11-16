@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 260" role="img" aria-label="Máy bay">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#d6dbe3"/><stop offset=".6" stop-color="#7d8696"/><stop offset=".8" stop-color="#3a4252"/><stop offset="1" stop-color="#9aa3b2"/>
+    </linearGradient>
+    <linearGradient id="wing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4f6fa"/><stop offset=".45" stop-color="#8a93a3"/><stop offset="1" stop-color="#2d3443"/>
+    </linearGradient>
+    <linearGradient id="wing2" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#c4cad4"/><stop offset=".6" stop-color="#5d6575"/><stop offset="1" stop-color="#1c202c"/>
+    </linearGradient>
+    <linearGradient id="trail" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a9c7ff" stop-opacity="0"/><stop offset="1" stop-color="#a9c7ff" stop-opacity=".7"/>
+    </linearGradient>
+    <linearGradient id="engine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e3e7ee"/><stop offset="1" stop-color="#434b5e"/>
+    </linearGradient>
+  </defs>
+  <!-- contrails -->
+  <path d="M0 214 L118 152" stroke="url(#trail)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M10 238 L132 172" stroke="url(#trail)" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+  <g transform="rotate(-28 170 130)">
+    <!-- far wing -->
+    <path d="M200 118 L228 72 L244 72 L228 118 Z" fill="url(#wing2)"/>
+    <!-- tail -->
+    <path d="M78 120 L58 76 L74 76 L102 118 Z" fill="url(#wing)"/>
+    <path d="M80 132 L54 150 L66 152 L98 136 Z" fill="url(#wing2)"/>
+    <!-- fuselage -->
+    <path d="M70 118 H262 C290 118 306 126 306 130 C306 134 290 142 262 142 H74 C66 142 62 136 62 130 C62 124 64 118 70 118 Z" fill="url(#body)"/>
+    <path d="M90 121 H262" stroke="#ffffff" stroke-opacity=".9" stroke-width="2"/>
+    <path d="M100 135 H270" stroke="#2457ff" stroke-width="3" stroke-linecap="round"/>
+    <!-- windows -->
+    <g fill="#141720">
+      <rect x="118" y="125" width="4" height="4" rx="2"/><rect x="128" y="125" width="4" height="4" rx="2"/><rect x="138" y="125" width="4" height="4" rx="2"/><rect x="148" y="125" width="4" height="4" rx="2"/><rect x="158" y="125" width="4" height="4" rx="2"/><rect x="168" y="125" width="4" height="4" rx="2"/><rect x="178" y="125" width="4" height="4" rx="2"/><rect x="188" y="125" width="4" height="4" rx="2"/><rect x="198" y="125" width="4" height="4" rx="2"/><rect x="208" y="125" width="4" height="4" rx="2"/><rect x="218" y="125" width="4" height="4" rx="2"/><rect x="228" y="125" width="4" height="4" rx="2"/>
+    </g>
+    <path d="M280 124 L292 124 L296 130 L280 130 Z" fill="#141720"/>
+    <!-- near wing -->
+    <path d="M168 140 L120 226 L144 226 L214 142 Z" fill="url(#wing)"/>
+    <path d="M168 140 L120 226" stroke="#ffffff" stroke-opacity=".7" stroke-width="1.5"/>
+    <!-- engine -->
+    <rect x="150" y="166" width="40" height="16" rx="8" fill="url(#engine)" transform="rotate(-8 170 174)"/>
+    <ellipse cx="190" cy="171" rx="3" ry="7" fill="#141720" transform="rotate(-8 170 174)"/>
+  </g>
+</svg>

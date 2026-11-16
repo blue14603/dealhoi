@@ -14,7 +14,7 @@ export default async function EditDeal({ params }: { params: Promise<{ id: strin
   const plain = Object.fromEntries(Object.entries(deal).map(([k, v]) => [k, v instanceof Date ? v.toISOString() : (v as string | number | boolean | null)]));
   return (
     <div className="space-y-6">
-      <Link href="/admin/deals" className="text-sm text-ink-muted hover:text-brand">← Danh sách ưu đãi</Link>
+      <Link href="/admin/deals" className="text-sm text-ink-muted hover:text-accent">← Danh sách ưu đãi</Link>
       <div>
         <h1 className="text-2xl font-bold">{String(deal.title)}</h1>
         <p className="mt-1 text-sm text-ink-muted">
@@ -23,7 +23,7 @@ export default async function EditDeal({ params }: { params: Promise<{ id: strin
         <p className="mt-1 text-sm">
           Nguồn:{" "}
           {deal.source_url ? (
-            <a className="text-brand hover:underline" href={String(deal.source_url)} target="_blank" rel="noopener noreferrer nofollow">{String(deal.source_url)}</a>
+            <a className="text-accent hover:underline" href={String(deal.source_url)} target="_blank" rel="noopener noreferrer nofollow">{String(deal.source_url)}</a>
           ) : "không có"}
           {deal.source_url && !deal.source_verified_at && <span className="text-warn"> (chưa duyệt — <Link href="/admin/sources" className="underline">duyệt nguồn</Link>)</span>}
         </p>

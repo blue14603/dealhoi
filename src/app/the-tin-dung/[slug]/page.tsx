@@ -53,11 +53,29 @@ export default async function CardDetailPage({ params }: { params: Params }) {
   return (
     <div className="grid gap-8 py-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
       <div className="min-w-0 space-y-10">
-        <section className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <CardVisual name={card.name} bankName={card.bank.name} network={card.network} tier={card.cardTier} imageUrl={card.imageUrl} />
+        <section className="grid items-center gap-8 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+          <div className="relative px-4 py-6 sm:px-8">
+            <span aria-hidden className="absolute inset-0 -z-10 rounded-full bg-[radial-gradient(circle,rgb(36_87_255/0.45),transparent_65%)] blur-2xl" />
+            <CardVisual name={card.name} bankName={card.bank.name} network={card.network} tier={card.cardTier} imageUrl={card.imageUrl} className="-rotate-6" />
+            {!card.imageUrl && <p className="mt-4 text-center text-xs text-ink-subtle">Hình minh họa — không phải thiết kế thẻ thật</p>}
+          </div>
           <div>
-            <p className="text-sm text-ink-muted">{card.bank.name}</p>
-            <h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">{card.name}</h1>
+            <p className="eyebrow">{card.bank.name}</p>
+            <h1 className="font-display mt-3 text-[2.25rem] leading-[1] font-bold sm:text-5xl">{card.name}</h1>
+            <dl className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-line bg-line text-sm">
+              <div className="bg-surface p-3">
+                <dt className="text-xs text-ink-subtle">Phí thường niên</dt>
+                <dd className="font-display mt-1 text-lg font-bold tabular">{card.annualFeeVnd === null ? "Chưa rõ" : card.annualFeeVnd === 0 ? "Miễn phí" : formatVnd(card.annualFeeVnd)}</dd>
+              </div>
+              <div className="bg-surface p-3">
+                <dt className="text-xs text-ink-subtle">Tổ chức thẻ</dt>
+                <dd className="font-display mt-1 text-lg font-bold">{card.network ?? "Chưa rõ"}</dd>
+              </div>
+              <div className="bg-surface p-3">
+                <dt className="text-xs text-ink-subtle">Quyền lợi đang áp dụng</dt>
+                <dd className="font-display mt-1 text-lg font-bold tabular">{active.length}</dd>
+              </div>
+            </dl>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
               {card.isDemo && <DemoBadge />}
               <VerificationText source={card.source} staleAfterDays={config.staleAfterDays} />
@@ -81,7 +99,7 @@ export default async function CardDetailPage({ params }: { params: Params }) {
         </section>
 
         <section aria-labelledby="h-facts">
-          <h2 id="h-facts" className="mb-3 text-lg font-bold">Thông tin thẻ</h2>
+          <h2 id="h-facts" className="font-display mb-4 text-2xl font-bold">Thông tin thẻ</h2>
           <dl className="rounded-2xl border border-line bg-surface px-5">
             <Fact label="Ngân hàng phát hành">{card.bank.name}</Fact>
             <Fact label="Tổ chức thẻ">{card.network ?? "Chưa rõ"}</Fact>
@@ -97,12 +115,13 @@ export default async function CardDetailPage({ params }: { params: Params }) {
         </section>
 
         <section aria-labelledby="h-highlights">
-          <h2 id="h-highlights" className="mb-1 text-lg font-bold">Quyền lợi nổi bật</h2>
+          <p className="eyebrow">Top benefits</p>
+          <h2 id="h-highlights" className="font-display mt-3 mb-1 text-[2rem] leading-none font-bold">Quyền lợi nổi bật</h2>
           <p className="mb-4 text-xs text-ink-subtle">{HIGHLIGHT_RULE_DESCRIPTION}</p>
           {highlights.length ? (
             <div className="grid gap-4">
-              {highlights.map((d) => (
-                <BenefitItem key={d.id} deal={d} today={today} staleAfterDays={config.staleAfterDays} cardId={card.id} highlight />
+              {highlights.map((d, i) => (
+                <BenefitItem key={d.id} deal={d} today={today} staleAfterDays={config.staleAfterDays} cardId={card.id} highlight index={i + 1} />
               ))}
             </div>
           ) : (
@@ -111,9 +130,11 @@ export default async function CardDetailPage({ params }: { params: Params }) {
         </section>
 
         {lifestyle && (
-          <section aria-labelledby="h-lifestyle" className="rounded-2xl bg-brand-soft p-6">
-            <h2 id="h-lifestyle" className="text-lg font-bold">Ai có thể hưởng lợi từ thẻ này?</h2>
-            <p className="mt-2 text-sm">{lifestyle.summary}</p>
+          <section aria-labelledby="h-lifestyle" className="relative overflow-hidden rounded-3xl border border-brand/40 bg-[linear-gradient(135deg,#131c3d,#0b0d14_70%)] p-6 sm:p-8">
+            <p className="eyebrow">Lifestyle fit</p>
+            <h2 id="h-lifestyle" className="font-display mt-3 text-[2.25rem] leading-none font-bold">Is this your card?</h2>
+            <p className="mt-3 text-base text-ink-muted">Khám phá mức độ phù hợp của chiếc thẻ này với cách bạn chi tiêu.</p>
+            <p className="mt-4 text-sm">{lifestyle.summary}</p>
             {lifestyle.considerations.length > 0 && (
               <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-ink-muted">
                 {lifestyle.considerations.map((c) => (
@@ -129,7 +150,7 @@ export default async function CardDetailPage({ params }: { params: Params }) {
         )}
 
         <section aria-labelledby="h-all" className="space-y-6">
-          <h2 id="h-all" className="text-lg font-bold">Tất cả quyền lợi đã xác minh ({active.length})</h2>
+          <h2 id="h-all" className="font-display text-2xl font-bold">Tất cả quyền lợi đã xác minh ({active.length})</h2>
           <div>
             <h3 className="mb-3 font-semibold">Quyền lợi thường xuyên & ưu đãi chào mừng</h3>
             {ongoing.length ? (
@@ -173,7 +194,7 @@ export default async function CardDetailPage({ params }: { params: Params }) {
       </div>
       <ChatPanel
         context={{ page: "card", cardSlug: card.slug }}
-        suggestions={["Phí thường niên của thẻ này là bao nhiêu?", "Thẻ này có giới hạn hoàn tiền không?", "Ưu đãi nào sắp hết hạn?"]}
+        suggestions={["Thẻ này có hợp với lifestyle của mình không?", "Phí thường niên của thẻ này là bao nhiêu?", "Ưu đãi này có giới hạn gì không?", "Ưu đãi nào sắp hết hạn?"]}
       />
     </div>
   );

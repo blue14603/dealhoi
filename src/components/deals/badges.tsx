@@ -74,7 +74,7 @@ export function SourceLink({ source, className }: { source: SourceRecord | null;
       href={source.url}
       target="_blank"
       rel="noopener noreferrer nofollow"
-      className={className ?? "inline-flex items-center gap-1 font-medium text-brand underline-offset-2 hover:underline"}
+      className={className ?? "inline-flex items-center gap-1 font-medium text-accent underline-offset-2 hover:underline"}
     >
       {source.isDemo ? "Nguồn minh họa" : source.sourceType === "official_bank" ? `Trang chính thức ${source.publisher}` : source.publisher}
       <ExternalLink className="size-3.5" aria-hidden />

@@ -4,15 +4,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-colors duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         primary: "bg-brand text-white hover:bg-brand-hover",
-        secondary: "border border-line-strong bg-surface text-ink hover:bg-canvas",
-        ghost: "text-ink hover:bg-black/5",
-        soft: "bg-brand-soft text-brand hover:bg-red-100",
-        link: "text-brand underline-offset-4 hover:underline px-0",
+        secondary: "border border-line-strong bg-surface-2 text-ink hover:border-brand-bright",
+        ghost: "text-ink-muted hover:bg-white/5 hover:text-ink",
+        soft: "border border-brand/40 bg-brand-soft text-ice hover:border-brand-bright",
+        link: "text-accent underline-offset-4 hover:underline px-0",
       },
       size: {
         sm: "h-8 px-3",

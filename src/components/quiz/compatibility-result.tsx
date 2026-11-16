@@ -9,14 +9,14 @@ import { cn } from "@/lib/utils";
 
 function ScoreRing({ score }: { score: number | null }) {
   const pct = score ?? 0;
-  const tone = score === null ? "text-ink-subtle" : score >= 70 ? "text-savings" : score >= 40 ? "text-warn" : "text-brand";
+  const tone = score === null ? "text-ink-subtle" : score >= 70 ? "text-ice" : score >= 40 ? "text-chrome" : "text-warn";
   return (
-    <div className="relative grid size-32 shrink-0 place-items-center" role="img" aria-label={score === null ? "Chưa thể tính điểm" : `Điểm phù hợp ${score} trên 100`}>
+    <div className="relative grid size-40 shrink-0 place-items-center sm:size-48" role="img" aria-label={score === null ? "Chưa thể tính điểm" : `Điểm phù hợp ${score} trên 100`}>
       <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90" aria-hidden>
-        <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="3" className="text-black/10" />
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="3" className="text-white/10" />
         <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray={`${pct} 100`} strokeLinecap="round" className={tone} />
       </svg>
-      <span className={cn("text-3xl font-extrabold tabular", tone)}>{score ?? "—"}</span>
+      <span className={cn("font-display text-6xl leading-none font-bold tracking-[-0.05em] tabular sm:text-7xl", tone)}>{score ?? "—"}</span>
     </div>
   );
 }
@@ -40,12 +40,13 @@ export function CompatibilityResultView({
 }) {
   const rel = RELIABILITY[result.reliability];
   return (
-    <section aria-labelledby="h-result" className="space-y-6 rounded-2xl border border-line bg-surface p-5 sm:p-6" data-testid="compatibility-result">
+    <section aria-labelledby="h-result" className="space-y-8 rounded-3xl border border-line bg-[linear-gradient(160deg,#131c3d_0%,#141720_40%)] p-5 sm:p-8" data-testid="compatibility-result">
       <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
         <ScoreRing score={result.score} />
         <div>
-          <h2 id="h-result" className="text-xl font-bold">
-            Mức độ phù hợp với {cardName}
+          <p className="eyebrow">Compatibility · Mức độ phù hợp</p>
+          <h2 id="h-result" className="font-display mt-3 text-[1.75rem] leading-tight font-bold sm:text-[2.25rem]">
+            {cardName}
           </h2>
           <Badge tone={rel.tone} className="mt-2">
             {rel.label}
@@ -61,10 +62,10 @@ export function CompatibilityResultView({
       )}
 
       <div>
-        <h3 className="mb-3 font-semibold">Cách tính điểm</h3>
+        <h3 className="font-display mb-3 text-xl font-bold">Cách tính điểm</h3>
         <ul className="space-y-3">
           {result.dimensions.map((d) => (
-            <li key={d.key} className="rounded-xl border border-line p-4">
+            <li key={d.key} className="rounded-2xl border border-line bg-surface/80 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium">
                   {d.label} <span className="text-xs font-normal text-ink-subtle">· trọng số {d.weight}%</span>
@@ -74,8 +75,8 @@ export function CompatibilityResultView({
                 </span>
               </div>
               {d.status === "scored" && (
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/10" aria-hidden>
-                  <div className="h-full rounded-full bg-brand" style={{ width: `${d.score}%` }} />
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
+                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#2457ff,#a9c7ff)]" style={{ width: `${d.score}%` }} />
                 </div>
               )}
               <p className="mt-2 text-sm text-ink-muted">{d.explanation}</p>
@@ -93,7 +94,7 @@ export function CompatibilityResultView({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <h3 className="mb-2 font-semibold">Lý do có thể phù hợp</h3>
+          <h3 className="font-display mb-2 text-lg font-bold">Lý do có thể phù hợp</h3>
           {result.reasons.length ? (
             <ul className="space-y-1.5 text-sm">
               {result.reasons.map((r) => (
@@ -107,12 +108,12 @@ export function CompatibilityResultView({
           )}
         </div>
         <div>
-          <h3 className="mb-2 font-semibold">Hạn chế & bất lợi</h3>
+          <h3 className="font-display mb-2 text-lg font-bold">Hạn chế & bất lợi</h3>
           {result.drawbacks.length ? (
             <ul className="space-y-1.5 text-sm">
               {result.drawbacks.map((r) => (
                 <li key={r} className="flex gap-2">
-                  <XCircle className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden /> {r}
+                  <XCircle className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden /> {r}
                 </li>
               ))}
             </ul>
@@ -123,7 +124,7 @@ export function CompatibilityResultView({
       </div>
 
       <div>
-        <h3 className="mb-2 font-semibold">Quyền lợi bạn có thể dùng thực tế</h3>
+        <h3 className="font-display mb-2 text-lg font-bold">Quyền lợi bạn có thể dùng thực tế</h3>
         {result.usableBenefits.length ? (
           <ul className="grid gap-2 sm:grid-cols-2">
             {result.usableBenefits.map((b) => (
@@ -142,7 +143,7 @@ export function CompatibilityResultView({
 
       {result.blockingConditions.length > 0 && (
         <div>
-          <h3 className="mb-2 font-semibold">Điều kiện có thể khiến bạn không nhận được ưu đãi</h3>
+          <h3 className="font-display mb-2 text-lg font-bold">Điều kiện có thể khiến bạn không nhận được ưu đãi</h3>
           <ul className="space-y-1.5 text-sm">
             {result.blockingConditions.map((r) => (
               <li key={r} className="flex gap-2">
@@ -165,7 +166,7 @@ export function CompatibilityResultView({
           </p>
         )}
         {explanation.status === "error" && (
-          <div role="alert" className="text-sm text-brand-hover">
+          <div role="alert" className="text-sm text-danger">
             <p>{explanation.message}</p>
             <Button variant="secondary" size="sm" className="mt-2" onClick={onExplain}>
               <RotateCcw aria-hidden /> Thử lại

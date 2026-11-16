@@ -1,52 +1,218 @@
 @import "tailwindcss";
 
-/* DealHoi design tokens */
+/* ==========================================================================
+   DealHoi — "Electric Chrome" design system (dark-first)
+   Tokens are consumed as Tailwind utilities, e.g. bg-surface, text-ink-muted.
+   ========================================================================== */
 @theme {
-  --color-brand: #dc2626;
-  --color-brand-hover: #b91c1c;
-  --color-brand-soft: #fef2f2;
-  --color-brand-ring: #fca5a5;
-  --color-canvas: #faf8f5;
-  --color-surface: #ffffff;
-  --color-ink: #1f2328;
-  --color-ink-muted: #565c64;
-  --color-ink-subtle: #6b7179;
-  --color-line: #e8e4de;
-  --color-line-strong: #d6d1c9;
-  --color-savings: #15803d;
-  --color-savings-soft: #f0fdf4;
-  --color-warn: #b45309;
-  --color-warn-soft: #fffbeb;
-  --color-info: #1d4ed8;
-  --color-info-soft: #eff6ff;
+  /* Surfaces */
+  --color-canvas: #08090d; /* obsidian — page background */
+  --color-surface: #141720; /* graphite — cards, panels */
+  --color-surface-2: #1c202c; /* elevated surfaces, table headers, inputs */
+  --color-line: #303646; /* hairline borders */
+  --color-line-strong: #434b5e; /* input borders, emphasised dividers */
+
+  /* Brand */
+  --color-brand: #2457ff; /* electric cobalt — BACKGROUNDS of primary actions only */
+  --color-brand-hover: #3a66ff; /* button hover bg: white text 4.64:1 (spec #416DFF is 4.32:1, below AA) */
+  --color-brand-bright: #416dff; /* borders, focus accents, large display text */
+  --color-brand-soft: #131c3d; /* tinted surface for selected states */
+  --color-brand-ring: #416dff;
+  --color-accent: #8eaeff; /* cobalt for TEXT & links on dark (≥ 7:1 on surface) */
+  --color-ice: #a9c7ff; /* ice blue — financial highlights */
+  --color-chrome: #c4cad4; /* metallic silver — brand accents, labels */
+
+  /* Text */
+  --color-ink: #f4f6fa; /* ice white */
+  --color-ink-muted: #a4adbf;
+  --color-ink-subtle: #8b94a7;
+
+  /* Semantic */
+  --color-savings: #b9f568; /* acid lime — positive financial outcomes only */
+  --color-savings-soft: #19230f;
+  --color-warn: #ffc266;
+  --color-warn-soft: #2a2213;
+  --color-info: #a9c7ff;
+  --color-info-soft: #151e36;
+  --color-danger: #ff7a7a; /* accessible red on dark — errors & serious warnings */
+  --color-danger-soft: #2c1518;
+
+  /* Typography */
   --font-sans: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
-  --radius-card: 1rem;
+  --font-display: var(--font-space-grotesk), var(--font-be-vietnam-pro), ui-sans-serif, sans-serif;
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Elevation */
+  --shadow-lift: 0 18px 40px -18px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(65 109 255 / 0.35);
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
+  --dur-fast: 200ms; /* colour, border, shadow */
+  --dur-move: 340ms; /* asset movement */
 }
 
 html {
   -webkit-text-size-adjust: 100%;
+  background: var(--color-canvas);
 }
 
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-feature-settings: "tnum" 0;
+}
+
+::selection {
+  background: rgb(36 87 255 / 0.55);
+  color: #fff;
 }
 
 /* Visible, consistent focus states for keyboard users */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-brand);
+  outline: 2px solid var(--color-ice);
   outline-offset: 2px;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
 }
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Editorial display type: confident, tight, never for long Vietnamese body copy */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+.eyebrow {
+  font-size: 0.6875rem; /* 11px */
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-chrome);
+}
+
+/* Chrome text treatment for short display words (decorative, high contrast kept) */
+.text-chrome {
+  background: linear-gradient(180deg, #ffffff 0%, #c4cad4 45%, #8a93a3 60%, #e9edf3 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ==========================================================================
+   Editorial deal cards — coordinated hover system
+   Hover is a progressive enhancement: only on devices that can hover.
+   ========================================================================== */
+.ed-card {
+  transition:
+    transform var(--dur-fast) var(--ease-out-soft),
+    box-shadow var(--dur-fast) var(--ease-out-soft),
+    border-color var(--dur-fast) var(--ease-out-soft);
+}
+.ed-asset {
+  transform: translate(0, 0) rotate(var(--rest-r, 0deg)) scale(1);
+  transition:
+    transform var(--dur-move) var(--ease-out-soft),
+    filter var(--dur-move) var(--ease-out-soft);
+  will-change: transform;
+}
+.ed-glow {
+  opacity: 0.35;
+  transition: opacity var(--dur-move) var(--ease-out-soft);
+}
+.ed-cta-arrow {
+  transition: transform var(--dur-fast) var(--ease-out-soft);
+}
+.ed-cta {
+  transition:
+    background-color var(--dur-fast) var(--ease-out-soft),
+    color var(--dur-fast) var(--ease-out-soft),
+    border-color var(--dur-fast) var(--ease-out-soft);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ed-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lift);
+    border-color: #416dff;
+  }
+  .ed-card:hover .ed-asset {
+    transform: translate(var(--hx, 0), var(--hy, -10px)) rotate(var(--hr, 0deg)) scale(var(--hs, 1.05));
+    filter: drop-shadow(0 22px 26px rgb(36 87 255 / 0.28));
+  }
+  .ed-card:hover .ed-glow {
+    opacity: 1;
+  }
+  .ed-card:hover .ed-cta {
+    background-color: var(--color-brand);
+    border-color: var(--color-brand);
+    color: #fff;
+  }
+  .ed-card:hover .ed-cta-arrow {
+    transform: translateX(4px) rotate(-8deg);
+  }
+}
+
+/* Keyboard users get the same feedback without motion of the asset */
+.ed-card:focus-visible {
+  border-color: var(--color-ice);
+  box-shadow: var(--shadow-lift);
+}
+.ed-card:focus-visible .ed-glow {
+  opacity: 1;
+}
+.ed-card:focus-visible .ed-cta {
+  background-color: var(--color-brand);
+  border-color: var(--color-brand);
+  color: #fff;
+}
+
+/* Touch press feedback */
+.ed-card:active {
+  transform: scale(0.99);
+}
+
+/* Lighter lift for generic interactive tiles (credit cards, merchants) */
+.lift {
+  transition:
+    transform var(--dur-fast) var(--ease-out-soft),
+    border-color var(--dur-fast) var(--ease-out-soft),
+    box-shadow var(--dur-fast) var(--ease-out-soft);
+}
+@media (hover: hover) and (pointer: fine) {
+  .lift:hover {
+    transform: translateY(-4px);
+    border-color: #416dff;
+    box-shadow: var(--shadow-lift);
+  }
+  .lift:hover .lift-asset {
+    transform: translateY(-6px) rotate(-2deg);
+  }
+}
+.lift-asset {
+  transition: transform var(--dur-move) var(--ease-out-soft);
+}
+.lift:active {
+  transform: scale(0.99);
+}
+
+/* Quiz step transition */
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.step-in {
+  animation: step-in 260ms var(--ease-out-soft) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -55,5 +221,16 @@ body {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .ed-card:hover,
+  .lift:hover,
+  .ed-card:active,
+  .lift:active {
+    transform: none !important;
+  }
+  .ed-card:hover .ed-asset,
+  .lift:hover .lift-asset {
+    transform: rotate(var(--rest-r, 0deg)) !important;
   }
 }

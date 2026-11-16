@@ -14,7 +14,7 @@ export default async function AdminCards() {
         {cards.map((c) => (
           <li key={String(c.id)} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
             <div>
-              <Link href={`/admin/cards/${c.id}`} className="font-medium hover:text-brand">{String(c.name)}</Link>
+              <Link href={`/admin/cards/${c.id}`} className="font-medium hover:text-accent">{String(c.name)}</Link>
               <p className="text-xs text-ink-muted">{String(c.bank_name)} · phí {c.annual_fee_vnd === null ? "chưa rõ" : formatVnd(Number(c.annual_fee_vnd))}</p>
             </div>
             <div className="flex flex-wrap gap-1">

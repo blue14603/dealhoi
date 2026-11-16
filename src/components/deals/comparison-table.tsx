@@ -14,11 +14,11 @@ export interface ComparisonRow {
 export function SavingsCell({ result }: { result: SavingsResult }) {
   switch (result.status) {
     case "exact":
-      return <span className="text-base font-bold text-savings tabular">{formatVnd(result.savingsVnd ?? 0)}</span>;
+      return <span className="font-display text-xl font-bold text-savings tabular">{formatVnd(result.savingsVnd ?? 0)}</span>;
     case "conditional":
       return (
         <span className="flex flex-col items-start gap-1">
-          <span className="text-base font-bold text-savings tabular">≈ {formatVnd(result.savingsVnd ?? 0)}</span>
+          <span className="font-display text-xl font-bold text-ice tabular">≈ {formatVnd(result.savingsVnd ?? 0)}</span>
           <Badge tone="warn">Ước tính có điều kiện</Badge>
         </span>
       );
@@ -59,7 +59,7 @@ function Conditions({ deal }: { deal: DealRecord }) {
       </p>
       {hasAny ? (
         <details className="group">
-          <summary className="cursor-pointer font-medium text-ink hover:text-brand">Xem điều kiện</summary>
+          <summary className="cursor-pointer font-medium text-ink hover:text-accent">Xem điều kiện</summary>
           <div className="mt-1 space-y-1 text-ink-muted">
             {deal.eligibilityTerms && <p>{deal.eligibilityTerms}</p>}
             {deal.termsAndConditions && <p>{deal.termsAndConditions}</p>}
@@ -108,7 +108,7 @@ export function ComparisonTable({ rows, today, staleAfterDays, caption }: { rows
             <col className="w-[20%]" />
             <col className="w-[24%]" />
           </colgroup>
-          <thead className="border-b border-line bg-canvas text-xs uppercase tracking-wide text-ink-muted">
+          <thead className="border-b border-line bg-surface-2 text-[0.7rem] uppercase tracking-[0.12em] text-ink-muted">
             <tr>
               <th scope="col" className="px-4 py-3 font-medium">Ngân hàng & thẻ</th>
               <th scope="col" className="px-4 py-3 font-medium">Ưu đãi · mức · tối đa · tối thiểu</th>
@@ -118,12 +118,12 @@ export function ComparisonTable({ rows, today, staleAfterDays, caption }: { rows
           </thead>
           <tbody>
             {rows.map(({ deal, result }) => (
-              <tr key={deal.id} className={cn("border-b border-line align-top last:border-0", result.isBest && "bg-savings-soft/60")} data-testid="comparison-row">
+              <tr key={deal.id} className={cn("border-b border-line align-top last:border-0", result.isBest && "bg-savings-soft/70 shadow-[inset_3px_0_0_var(--color-savings)]")} data-testid="comparison-row">
                 <td className="px-4 py-4">
                   <CardsCell deal={deal} />
                 </td>
                 <td className="px-4 py-4">
-                  <p className="font-semibold">{deal.title}</p>
+                  <p className="font-display text-base font-bold">{deal.title}</p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     <Badge tone="brand">{BENEFIT_TYPE_LABELS[deal.benefitType]}</Badge>
                     <OfferTypeBadge type={deal.offerType} />
@@ -137,7 +137,7 @@ export function ComparisonTable({ rows, today, staleAfterDays, caption }: { rows
                   <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
                     <div>
                       <dt className="text-ink-subtle">Mức</dt>
-                      <dd className="text-sm font-semibold tabular">{describeAdvertisedValue(deal)}</dd>
+                      <dd className="font-display text-lg font-bold text-ice tabular">{describeAdvertisedValue(deal)}</dd>
                     </div>
                     <div>
                       <dt className="text-ink-subtle">Tối đa</dt>
@@ -171,13 +171,13 @@ export function ComparisonTable({ rows, today, staleAfterDays, caption }: { rows
 
       <ul className="space-y-3 md:hidden" aria-label={caption}>
         {rows.map(({ deal, result }) => (
-          <li key={deal.id} className={cn("rounded-2xl border bg-surface p-4", result.isBest ? "border-savings" : "border-line")} data-testid="comparison-card">
+          <li key={deal.id} className={cn("rounded-2xl border bg-surface p-4", result.isBest ? "border-savings/70" : "border-line")} data-testid="comparison-card">
             {result.isBest && (
               <Badge tone="savings" className="mb-2">
                 <Trophy aria-hidden /> Tiết kiệm cao nhất
               </Badge>
             )}
-            <p className="font-semibold">{deal.title}</p>
+            <p className="font-display text-base font-bold">{deal.title}</p>
             <div className="mt-1 flex flex-wrap gap-1">
               <Badge tone="brand">{BENEFIT_TYPE_LABELS[deal.benefitType]}</Badge>
               <OfferTypeBadge type={deal.offerType} />

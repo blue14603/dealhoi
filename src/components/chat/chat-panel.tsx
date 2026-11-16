@@ -1,5 +1,5 @@
 "use client";
-import { AlertTriangle, ExternalLink, Loader2, MessageCircle, RotateCcw, Send, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, ExternalLink, Loader2, RotateCcw, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -101,7 +101,7 @@ function useChat(ctx: ChatContext) {
 
 function AssistantMessage({ reply, onAsk, disabled }: { reply: Reply; onAsk: (q: string) => void; disabled: boolean }) {
   return (
-    <div className={cn("rounded-2xl rounded-tl-sm border px-3.5 py-3 text-sm", reply.grounded ? "border-line bg-surface" : "border-amber-200 bg-warn-soft")}>
+    <div className={cn("rounded-2xl rounded-tl-md border px-4 py-3 text-sm", reply.grounded ? "border-line bg-surface-2" : "border-warn/30 bg-warn-soft")}>
       <p className="whitespace-pre-line leading-relaxed">{reply.answer}</p>
       {reply.uncertainties.length > 0 && (
         <div className="mt-3 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">
@@ -122,7 +122,7 @@ function AssistantMessage({ reply, onAsk, disabled }: { reply: Reply; onAsk: (q:
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
           <span className="font-medium">Nguồn:</span>
           {reply.sources.map((s) => (
-            <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 text-brand hover:underline">
+            <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 text-accent hover:underline">
               {s.isDemo ? "Nguồn minh họa" : s.publisher}
               <ExternalLink className="size-3" aria-hidden />
             </a>
@@ -132,7 +132,7 @@ function AssistantMessage({ reply, onAsk, disabled }: { reply: Reply; onAsk: (q:
       {reply.suggestedQuestions.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {reply.suggestedQuestions.map((q) => (
-            <button key={q} type="button" disabled={disabled} onClick={() => onAsk(q)} className="rounded-full border border-line-strong px-3 py-1 text-xs hover:border-brand hover:text-brand disabled:opacity-50">
+            <button key={q} type="button" disabled={disabled} onClick={() => onAsk(q)} className="rounded-full border border-line-strong px-3 py-1 text-xs hover:border-brand hover:text-accent disabled:opacity-50">
               {q}
             </button>
           ))}
@@ -165,7 +165,7 @@ function ChatBody({ chat, suggestions, intro }: { chat: ReturnType<typeof useCha
             <p className="text-sm text-ink-muted">{intro}</p>
             <div className="flex flex-col gap-2">
               {suggestions.map((q) => (
-                <button key={q} type="button" disabled={chat.pending} onClick={() => void chat.send(q)} className="rounded-xl border border-line-strong bg-surface px-3 py-2 text-left text-sm hover:border-brand hover:text-brand disabled:opacity-50">
+                <button key={q} type="button" disabled={chat.pending} onClick={() => void chat.send(q)} className="rounded-xl border border-line-strong bg-surface-2 px-3 py-2.5 text-left text-sm text-ink-muted transition-colors duration-200 hover:border-brand-bright hover:text-ink disabled:opacity-50">
                   {q}
                 </button>
               ))}
@@ -174,7 +174,7 @@ function ChatBody({ chat, suggestions, intro }: { chat: ReturnType<typeof useCha
         )}
         {chat.messages.map((m, i) =>
           m.role === "user" ? (
-            <div key={i} className="ml-8 rounded-2xl rounded-tr-sm bg-brand px-3.5 py-2.5 text-sm text-white">
+            <div key={i} className="ml-8 rounded-2xl rounded-tr-md bg-brand px-4 py-2.5 text-sm text-white">
               {m.content}
             </div>
           ) : (
@@ -187,7 +187,7 @@ function ChatBody({ chat, suggestions, intro }: { chat: ReturnType<typeof useCha
           </div>
         )}
         {chat.error && (
-          <div role="alert" className="rounded-xl border border-red-200 bg-brand-soft p-3 text-sm text-brand-hover">
+          <div role="alert" className="rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">
             <p className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
               {chat.error.message}
@@ -217,7 +217,7 @@ function ChatBody({ chat, suggestions, intro }: { chat: ReturnType<typeof useCha
               }
             }}
             placeholder="Hỏi về ưu đãi, giới hạn, điều kiện…"
-            className="min-h-11 flex-1 resize-none rounded-xl border border-line-strong bg-surface px-3 py-2 text-base sm:text-sm"
+            className="min-h-11 flex-1 resize-none rounded-xl border border-line-strong bg-surface-2 px-3 py-2 text-base placeholder:text-ink-subtle sm:text-sm"
           />
           <Button type="submit" size="icon" disabled={chat.pending || !input.trim()} aria-label="Gửi câu hỏi">
             {chat.pending ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
@@ -235,22 +235,32 @@ function ChatBody({ chat, suggestions, intro }: { chat: ReturnType<typeof useCha
 }
 
 const DEFAULT_SUGGESTIONS = [
-  "Thẻ nào có lợi nhất cho giao dịch này?",
-  "Ưu đãi này có giới hạn hoàn tiền không?",
-  "Tôi cần chi tiêu tối thiểu bao nhiêu?",
-  "Tôi có thể kết hợp hai ưu đãi này không?",
+  "Thẻ nào hời nhất cho giao dịch này?",
+  "Mình cần chi bao nhiêu để được hoàn tiền?",
+  "Ưu đãi này có giới hạn gì không?",
+  "Mình có thể kết hợp hai ưu đãi này không?",
 ];
 
-export function ChatPanel({ context, suggestions = DEFAULT_SUGGESTIONS, title = "Hỏi DealHoi" }: { context: ChatContext; suggestions?: string[]; title?: string }) {
+/** Original abstract chrome orb + spark: the assistant's brand symbol. */
+function SidekickMark({ className }: { className?: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/illustrations/sidekick.svg" alt="" aria-hidden width={32} height={32} className={className ?? "size-8"} />;
+}
+
+export function ChatPanel({ context, suggestions = DEFAULT_SUGGESTIONS, title = "DealHoi AI" }: { context: ChatContext; suggestions?: string[]; title?: string }) {
   const chat = useChat(context);
   const intro = "Hỏi về các ưu đãi trên trang này. Câu trả lời dựa trên dữ liệu đã xác minh và các phép tính của DealHoi.";
   const header = (
     <div className="flex items-center justify-between border-b border-line px-4 py-3">
-      <h2 className="flex items-center gap-2 font-semibold">
-        <Sparkles className="size-4 text-brand" aria-hidden /> {title}
-      </h2>
+      <div className="flex items-center gap-3">
+        <SidekickMark />
+        <div>
+          <h2 className="font-display text-base leading-tight font-bold">{title}</h2>
+          <p className="text-xs text-ink-subtle">Your deal sidekick.</p>
+        </div>
+      </div>
       {chat.messages.length > 0 && (
-        <button type="button" onClick={chat.clear} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-ink-muted hover:bg-black/5" aria-label="Xóa cuộc trò chuyện">
+        <button type="button" onClick={chat.clear} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-ink-muted hover:bg-white/5" aria-label="Xóa cuộc trò chuyện">
           <Trash2 className="size-3.5" aria-hidden /> Xóa
         </button>
       )}
@@ -258,15 +268,17 @@ export function ChatPanel({ context, suggestions = DEFAULT_SUGGESTIONS, title = 
   );
   return (
     <>
-      <aside aria-label={title} className="sticky top-20 hidden h-[calc(100dvh-6rem)] flex-col overflow-hidden rounded-2xl border border-line bg-surface lg:flex">
+      <aside aria-label={title} className="sticky top-20 hidden h-[calc(100dvh-6rem)] flex-col overflow-hidden rounded-3xl border border-line bg-surface lg:flex">
         {header}
         <ChatBody chat={chat} suggestions={suggestions} intro={intro} />
       </aside>
       <div className="lg:hidden">
+        {/* Reserve space so the floating button never covers the end of the page */}
+        <div aria-hidden className="h-20" />
         <Sheet>
           <SheetTrigger asChild>
-            <Button size="lg" className="fixed right-4 bottom-4 z-30 shadow-lg" aria-label="Mở trợ lý hỏi đáp DealHoi">
-              <MessageCircle aria-hidden /> {title}
+            <Button size="lg" className="fixed right-4 bottom-4 z-30 pl-2 shadow-[0_12px_32px_-8px_rgb(36_87_255/0.7)]" aria-label="Mở trợ lý DealHoi AI">
+              <SidekickMark className="size-8" /> {title}
             </Button>
           </SheetTrigger>
           <SheetContent title={title} className="h-[85dvh]">

@@ -8,6 +8,8 @@ DealHoi is **not** a bank, lender, payment processor or card application service
 
 ---
 
+**Design system:** "Electric Chrome" (dark-first). See [docs/design-system.md](docs/design-system.md) for tokens, typography, assets and licensing, and verification results.
+
 ## Contents
 
 1. [Features](#features)

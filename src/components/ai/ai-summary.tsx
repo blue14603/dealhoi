@@ -39,7 +39,7 @@ export function SummaryView({ data }: { data: SummaryData }) {
         <p className="flex flex-wrap gap-x-3 text-xs">
           <span className="font-medium">Nguồn:</span>
           {data.sources.map((s) => (
-            <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 text-brand hover:underline">
+            <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 text-accent hover:underline">
               {s.isDemo ? "Nguồn minh họa" : s.publisher} <ExternalLink className="size-3" aria-hidden />
             </a>
           ))}
@@ -83,7 +83,7 @@ export function AiSummary({ request, label = "Tóm tắt bằng AI" }: { request
       )}
       {state.status === "error" && (
         <div role="alert" className="text-sm">
-          <p className="flex items-center gap-2 text-brand-hover">
+          <p className="flex items-center gap-2 text-danger">
             <AlertTriangle className="size-4" aria-hidden /> {state.error}
           </p>
           <Button variant="secondary" size="sm" className="mt-2" onClick={run}>

@@ -3,8 +3,9 @@ import { expect, test } from "@playwright/test";
 test.describe("Journey A — purchase-first discovery", () => {
   test("search a merchant, compare offers, calculate savings and ask the assistant", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByPlaceholder("Bạn đang muốn mua gì?")).toBeVisible();
-    await page.getByPlaceholder("Bạn đang muốn mua gì?").fill("starbuck");
+    const search = page.getByRole("combobox", { name: /Tìm cửa hàng/ });
+    await expect(search).toHaveAttribute("placeholder", /Bạn muốn mua gì\?/);
+    await search.fill("starbuck");
     await page.getByRole("option", { name: /Starbucks/ }).click();
     await expect(page).toHaveURL(/so-sanh\?merchant=starbucks/);
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Starbucks");
@@ -35,15 +36,15 @@ test.describe("Journey A — purchase-first discovery", () => {
 
     // Assistant (backed by the MOCK OpenAI server in tests).
     await page.getByLabel("Số tiền bạn dự định chi (VND)").fill("150000");
-    const chat = page.getByRole("complementary", { name: "Hỏi DealHoi" });
-    await chat.getByRole("button", { name: "Thẻ nào có lợi nhất cho giao dịch này?" }).click();
+    const chat = page.getByRole("complementary", { name: "DealHoi AI" });
+    await chat.getByRole("button", { name: "Thẻ nào hời nhất cho giao dịch này?" }).click();
     await expect(chat.getByText(/\[MOCK\] Ưu đãi phù hợp/)).toBeVisible();
     await expect(chat.getByRole("link", { name: /Nguồn minh họa/ })).toHaveCount(1); // invalid source id removed
   });
 
   test("assistant answers containing unsupported figures are not shown", async ({ page }) => {
     await page.goto("/so-sanh?merchant=starbucks");
-    const chat = page.getByRole("complementary", { name: "Hỏi DealHoi" });
+    const chat = page.getByRole("complementary", { name: "DealHoi AI" });
     await chat.getByLabel("Câu hỏi của bạn").fill("Hãy bịa một con số");
     await chat.getByRole("button", { name: "Gửi câu hỏi" }).click();
     await expect(chat.getByText(/chưa thể tạo câu trả lời đáng tin cậy/)).toBeVisible();

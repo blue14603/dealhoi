@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 320" role="img" aria-label="Túi mua sắm chrome">
+  <defs>
+    <linearGradient id="front" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset=".18" stop-color="#c4cad4"/><stop offset=".36" stop-color="#6c7484"/><stop offset=".52" stop-color="#f4f6fa"/><stop offset=".7" stop-color="#9aa3b2"/><stop offset=".86" stop-color="#2d3443"/><stop offset="1" stop-color="#c4cad4"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3a4252"/><stop offset=".5" stop-color="#8a93a3"/><stop offset="1" stop-color="#262c38"/>
+    </linearGradient>
+    <linearGradient id="cobalt" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2457ff" stop-opacity="0"/><stop offset=".5" stop-color="#2457ff" stop-opacity=".75"/><stop offset="1" stop-color="#2457ff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8a93a3"/><stop offset=".5" stop-color="#ffffff"/><stop offset="1" stop-color="#5d6575"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0d14"/><stop offset="1" stop-color="#1c202c"/>
+    </linearGradient>
+    <radialGradient id="shadow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#000" stop-opacity=".75"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+  </defs>
+  <ellipse cx="128" cy="306" rx="96" ry="10" fill="url(#shadow)"/>
+  <!-- back handle -->
+  <path d="M104 98 C104 40 172 40 172 98" stroke="#4a5262" stroke-width="9" fill="none" stroke-linecap="round"/>
+  <!-- side panel -->
+  <path d="M190 104 L222 90 L230 282 L198 300 Z" fill="url(#side)"/>
+  <!-- opening -->
+  <path d="M42 104 L190 104 L222 90 L78 90 Z" fill="url(#top)"/>
+  <!-- front panel -->
+  <path d="M42 104 H190 L198 300 H32 Z" fill="url(#front)"/>
+  <path d="M38 196 H194 L196 232 H35 Z" fill="url(#cobalt)" opacity=".85"/>
+  <path d="M54 116 L46 288" stroke="#ffffff" stroke-opacity=".7" stroke-width="4" stroke-linecap="round"/>
+  <path d="M42 104 H190 L198 300 H32 Z" fill="none" stroke="#a9c7ff" stroke-opacity=".55" stroke-width="1.5"/>
+  <!-- front handle -->
+  <path d="M78 104 C78 34 154 34 154 104" stroke="url(#handle)" stroke-width="9" fill="none" stroke-linecap="round"/>
+  <circle cx="78" cy="112" r="5" fill="#1c202c" stroke="#c4cad4" stroke-width="2"/>
+  <circle cx="154" cy="112" r="5" fill="#1c202c" stroke="#c4cad4" stroke-width="2"/>
+</svg>

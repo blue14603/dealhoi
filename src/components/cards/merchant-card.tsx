@@ -4,8 +4,8 @@ import { CategoryIcon } from "./category-icon";
 
 export function MerchantCard({ merchant, offerCount }: { merchant: MerchantRow; offerCount?: number }) {
   return (
-    <Link href={`/so-sanh?merchant=${merchant.slug}`} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 transition-shadow hover:shadow-md">
-      <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-lg font-bold text-brand">
+    <Link href={`/so-sanh?merchant=${merchant.slug}`} className="lift flex items-center gap-3 rounded-2xl border border-line bg-surface p-4">
+      <span aria-hidden className="font-display grid size-11 shrink-0 place-items-center rounded-xl bg-surface-2 text-lg font-bold text-ice ring-1 ring-line-strong">
         {merchant.name.charAt(0)}
       </span>
       <span className="min-w-0">

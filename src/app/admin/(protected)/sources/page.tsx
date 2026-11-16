@@ -25,7 +25,7 @@ export default async function AdminSources() {
           <li key={String(s.id)} className="rounded-2xl border border-line bg-surface p-4 text-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <a href={String(s.url)} target="_blank" rel="noopener noreferrer nofollow" className="break-all font-medium text-brand hover:underline">{String(s.url)}</a>
+                <a href={String(s.url)} target="_blank" rel="noopener noreferrer nofollow" className="break-all font-medium text-accent hover:underline">{String(s.url)}</a>
                 <p className="text-xs text-ink-muted">
                   {String(s.publisher)} · {String(s.source_type)} · lấy ngày {formatTimestampDate(new Date(s.retrieved_at as string).toISOString())} · {Number(s.deal_count)} ưu đãi, {Number(s.card_count)} thẻ
                 </p>

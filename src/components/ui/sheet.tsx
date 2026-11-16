@@ -11,18 +11,18 @@ export const SheetClose = Dialog.Close;
 export function SheetContent({ title, side = "bottom", children, className }: { title: string; side?: "bottom" | "right"; children: React.ReactNode; className?: string }) {
   return (
     <Dialog.Portal>
-      <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
+      <Dialog.Overlay className="fixed inset-0 z-40 bg-black/70" />
       <Dialog.Content
         aria-describedby={undefined}
         className={cn(
-          "fixed z-50 flex flex-col bg-surface shadow-xl",
-          side === "bottom" ? "inset-x-0 bottom-0 max-h-[88dvh] rounded-t-2xl" : "inset-y-0 right-0 w-[min(90vw,22rem)]",
+          "fixed z-50 flex flex-col border-line bg-surface shadow-2xl",
+          side === "bottom" ? "inset-x-0 bottom-0 max-h-[88dvh] rounded-t-3xl border-t" : "inset-y-0 right-0 w-[min(90vw,22rem)] border-l",
           className,
         )}
       >
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
-          <Dialog.Title className="text-base font-semibold">{title}</Dialog.Title>
-          <Dialog.Close className="rounded-full p-2 hover:bg-black/5" aria-label="Đóng">
+          <Dialog.Title className="font-display text-lg font-bold">{title}</Dialog.Title>
+          <Dialog.Close className="rounded-full p-2 hover:bg-white/5" aria-label="Đóng">
             <X className="size-5" />
           </Dialog.Close>
         </div>

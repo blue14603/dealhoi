@@ -9,5 +9,5 @@ test("mobile comparison has no horizontal scroll and opens the chat sheet", asyn
   await page.goto("/so-sanh?merchant=starbucks&amount=150000");
   await expect(page.getByTestId("comparison-card").first()).toBeVisible();
   await page.getByRole("button", { name: /Mở trợ lý/ }).click();
-  await expect(page.getByRole("dialog", { name: "Hỏi DealHoi" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "DealHoi AI" })).toBeVisible();
 });

@@ -98,7 +98,7 @@ export function SearchBox({ defaultValue = "", size = "lg", autoFocus = false }:
       <label htmlFor={`${listId}-input`} className="sr-only">
         Tìm cửa hàng, sản phẩm hoặc thẻ tín dụng
       </label>
-      <div className={cn("flex items-center gap-2 rounded-full border border-line-strong bg-surface pl-4 shadow-sm focus-within:border-brand", size === "lg" ? "h-14" : "h-11")}>
+      <div className={cn("flex items-center gap-2 rounded-2xl border border-line-strong bg-surface-2 pl-4 transition-colors duration-200 focus-within:border-brand-bright hover:border-ink-subtle", size === "lg" ? "h-16 shadow-[0_0_0_6px_rgb(36_87_255/0.08)]" : "h-12")}>
         <Search className="size-5 shrink-0 text-ink-subtle" aria-hidden />
         <input
           id={`${listId}-input`}
@@ -121,21 +121,21 @@ export function SearchBox({ defaultValue = "", size = "lg", autoFocus = false }:
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           onKeyDown={onKeyDown}
-          placeholder="Bạn đang muốn mua gì?"
+          placeholder={size === "lg" ? "Bạn muốn mua gì? Starbucks, iPhone, vé concert..." : "Bạn muốn mua gì?"}
           className={cn("min-w-0 flex-1 bg-transparent text-ink placeholder:text-ink-subtle focus:outline-none focus-visible:outline-none", size === "lg" ? "text-base sm:text-lg" : "text-base sm:text-sm")}
         />
         {loading && <Loader2 className="size-4 animate-spin text-ink-subtle" aria-label="Đang tìm" />}
-        <button type="submit" className={cn("mr-1.5 shrink-0 rounded-full bg-brand font-medium text-white hover:bg-brand-hover", size === "lg" ? "h-11 px-5" : "h-8 px-4 text-sm")}>
-          Tìm
+        <button type="submit" className={cn("mr-2 shrink-0 rounded-xl bg-brand font-semibold text-white transition-colors duration-200 hover:bg-brand-hover", size === "lg" ? "h-12 px-4 sm:px-6" : "h-9 px-4 text-sm")}>
+          {size === "lg" ? (<><span className="hidden sm:inline">Tìm deal ngay</span><span className="sm:hidden">Tìm</span></>) : "Tìm"}
         </button>
       </div>
       {error && (
-        <p id={errorId} role="alert" className="mt-2 px-4 text-sm text-brand-hover">
+        <p id={errorId} role="alert" className="mt-2 px-4 text-sm text-danger">
           {error}
         </p>
       )}
       {showList && (
-        <ul id={listId} role="listbox" className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-line bg-surface py-1 text-left shadow-lg">
+        <ul id={listId} role="listbox" className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-line-strong bg-surface-2 py-1 text-left shadow-2xl">
           {items.map((it, i) => (
             <li
               key={`${it.kind}-${it.href}`}
@@ -147,7 +147,7 @@ export function SearchBox({ defaultValue = "", size = "lg", autoFocus = false }:
                 router.push(it.href);
               }}
               onMouseEnter={() => setActive(i)}
-              className={cn("flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5", i === active && "bg-black/5")}
+              className={cn("flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5", i === active && "bg-brand-soft")}
             >
               <span className="min-w-0">
                 <span className="block truncate font-medium">{it.label}</span>

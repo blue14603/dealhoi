@@ -122,7 +122,7 @@ export function ImportPanel() {
             </tbody>
           </table>
           {report.errors.length > 0 && (
-            <ul className="list-disc space-y-1 pl-5 text-brand-hover">
+            <ul className="list-disc space-y-1 pl-5 text-danger">
               {report.errors.map((e, i) => (
                 <li key={i}>{e.entity}{e.index >= 0 ? `[${e.index}]` : ""} {e.key}: {e.message}</li>
               ))}

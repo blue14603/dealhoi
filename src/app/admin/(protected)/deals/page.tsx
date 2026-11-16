@@ -24,7 +24,7 @@ export default async function AdminDeals({ searchParams }: { searchParams: Promi
       <h1 className="text-2xl font-bold">Ưu đãi ({deals.length})</h1>
       <nav className="flex flex-wrap gap-2" aria-label="Lọc trạng thái">
         {FILTERS.map((f) => (
-          <Link key={f.v} href={f.v ? `/admin/deals?status=${f.v}` : "/admin/deals"} className={`rounded-full border px-3 py-1 text-sm ${(valid ?? "") === f.v ? "border-brand text-brand" : "border-line-strong"}`}>
+          <Link key={f.v} href={f.v ? `/admin/deals?status=${f.v}` : "/admin/deals"} className={`rounded-full border px-3 py-1 text-sm ${(valid ?? "") === f.v ? "border-brand text-accent" : "border-line-strong"}`}>
             {f.label}
           </Link>
         ))}
@@ -45,7 +45,7 @@ export default async function AdminDeals({ searchParams }: { searchParams: Promi
             {deals.map((d) => (
               <tr key={d.id} className="border-b border-line align-top last:border-0">
                 <td className="px-3 py-2">
-                  <Link href={`/admin/deals/${d.id}`} className="font-medium hover:text-brand">{d.title}</Link>
+                  <Link href={`/admin/deals/${d.id}`} className="font-medium hover:text-accent">{d.title}</Link>
                   <p className="text-xs text-ink-muted">{d.merchant_name ?? d.category_name} · {d.import_key}</p>
                   <div className="mt-1 flex gap-1">
                     {d.is_demo && <Badge tone="warn">Demo</Badge>}
@@ -53,7 +53,7 @@ export default async function AdminDeals({ searchParams }: { searchParams: Promi
                     {d.stale && <Badge tone="warn">Xác minh cũ</Badge>}
                   </div>
                 </td>
-                <td className="px-3 py-2 text-xs">{d.card_names.join(", ") || <span className="text-brand">Chưa gắn thẻ</span>}</td>
+                <td className="px-3 py-2 text-xs">{d.card_names.join(", ") || <span className="text-accent">Chưa gắn thẻ</span>}</td>
                 <td className="px-3 py-2 text-xs">
                   {d.verification_status} / {d.publication_status}
                   <p className="text-ink-muted">{LIFECYCLE_LABELS[d.lifecycle as DealLifecycle]}</p>
@@ -61,7 +61,7 @@ export default async function AdminDeals({ searchParams }: { searchParams: Promi
                 <td className="px-3 py-2 text-xs">{formatDate(d.start_date)} – {formatDate(d.end_date)}</td>
                 <td className="px-3 py-2 text-xs">
                   {d.source_url ? (
-                    <a href={d.source_url} target="_blank" rel="noopener noreferrer nofollow" className="text-brand hover:underline">Mở nguồn</a>
+                    <a href={d.source_url} target="_blank" rel="noopener noreferrer nofollow" className="text-accent hover:underline">Mở nguồn</a>
                   ) : "Không có"}
                   {!d.source_verified_at && d.source_url && <p className="text-warn">Nguồn chưa duyệt</p>}
                 </td>
@@ -77,7 +77,7 @@ export default async function AdminDeals({ searchParams }: { searchParams: Promi
                     <form action={setDealStatusAction}>
                       <input type="hidden" name="id" value={d.id} />
                       <input type="hidden" name="status" value="withdrawn" />
-                      <button className="text-xs font-medium text-brand hover:underline">Ngừng hiển thị</button>
+                      <button className="text-xs font-medium text-accent hover:underline">Ngừng hiển thị</button>
                     </form>
                   )}
                   <Link href={`/admin/deals/${d.id}`} className="block text-xs font-medium hover:underline">Sửa</Link>

@@ -79,7 +79,7 @@ export function ComparisonWorkspace({ activeDeals, inactiveDeals, today, staleAf
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
       <div className="min-w-0 space-y-8">
-        <div className="z-10 rounded-2xl border border-line bg-surface p-4 lg:sticky lg:top-20">
+        <div className="z-10 rounded-2xl border border-line bg-surface/95 p-4 backdrop-blur lg:sticky lg:top-20">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
               <Label htmlFor={amountId}>Số tiền bạn dự định chi (VND)</Label>
@@ -94,7 +94,7 @@ export function ComparisonWorkspace({ activeDeals, inactiveDeals, today, staleAf
                 aria-describedby={amountError ? `${amountId}-err` : `${amountId}-hint`}
               />
               {amountError ? (
-                <p id={`${amountId}-err`} role="alert" className="mt-1 text-xs text-brand-hover">
+                <p id={`${amountId}-err`} role="alert" className="mt-1 text-xs text-danger">
                   {amountError}
                 </p>
               ) : (
@@ -156,7 +156,7 @@ export function ComparisonWorkspace({ activeDeals, inactiveDeals, today, staleAf
         )}
 
         <section aria-labelledby="h-monetary">
-          <h2 id="h-monetary" className="mb-1 text-lg font-bold">
+          <h2 id="h-monetary" className="font-display mb-1 text-2xl font-bold">
             Hoàn tiền & giảm giá
           </h2>
           <p className="mb-4 flex items-start gap-1.5 text-sm text-ink-muted">
@@ -172,7 +172,7 @@ export function ComparisonWorkspace({ activeDeals, inactiveDeals, today, staleAf
 
         {installments.length > 0 && (
           <section aria-labelledby="h-installment">
-            <h2 id="h-installment" className="mb-1 text-lg font-bold">
+            <h2 id="h-installment" className="font-display mb-1 text-2xl font-bold">
               Trả góp
             </h2>
             <p className="mb-4 text-sm text-ink-muted">Trả góp giúp chia nhỏ khoản thanh toán, không phải là khoản tiết kiệm. Kiểm tra phí chuyển đổi và lãi nếu trả chậm.</p>
@@ -182,7 +182,7 @@ export function ComparisonWorkspace({ activeDeals, inactiveDeals, today, staleAf
 
         {others.length > 0 && (
           <section aria-labelledby="h-other">
-            <h2 id="h-other" className="mb-1 text-lg font-bold">
+            <h2 id="h-other" className="font-display mb-1 text-2xl font-bold">
               Điểm thưởng, voucher & đặc quyền
             </h2>
             <p className="mb-4 text-sm text-ink-muted">Các quyền lợi này không được quy đổi ra tiền nên không được xếp hạng cùng hoàn tiền và giảm giá.</p>

@@ -14,14 +14,20 @@ test.describe("Journey B — card-first discovery", () => {
 
     await page.getByRole("link", { name: "Thẻ này có phù hợp với bạn không?" }).first().click();
     await expect(page).toHaveURL(/phu-hop/);
-    await page.getByRole("button", { name: /Xem mức độ phù hợp/ }).click();
-    await expect(page.getByText("Vui lòng hoàn thành các câu hỏi được đánh dấu.")).toBeVisible();
+    const next = page.getByRole("button", { name: /^Tiếp (theo|tục)/ });
+    await next.click();
+    await expect(page.getByText("Vui lòng chọn mức chi tiêu.")).toBeVisible(); // per-step validation
 
     await page.getByLabel("20 – 50 triệu ₫").check();
+    await next.click();
     await page.getByLabel("Du lịch & hàng không", { exact: true }).check();
     await page.getByLabel("Mua sắm trực tuyến", { exact: true }).check();
+    await next.click();
+    await next.click(); // optional per-category spend
     await page.getByLabel("Đặc quyền du lịch").check();
+    await next.click();
     await page.getByLabel("Tối đa 500.000 ₫/năm").check();
+    await next.click();
     await page.getByLabel("Tôi sẽ thanh toán toàn bộ dư nợ mỗi tháng").check();
     await page.getByRole("button", { name: /Xem mức độ phù hợp/ }).click();
 
@@ -31,20 +37,30 @@ test.describe("Journey B — card-first discovery", () => {
     await expect(result.getByText("Hạn chế & bất lợi")).toBeVisible();
     await expect(result.getByText(/không phải đánh giá khả năng tín dụng/)).toBeVisible();
     await expect(result.getByText("Lưu ý về dư nợ thẻ tín dụng")).toHaveCount(0);
-    // 1 of 2 categories → category score 50
+    // 1 of 2 categories → category score 50 (scoring unchanged by the redesign)
     await expect(result.getByText("1/2 danh mục bạn chọn có quyền lợi đã xác minh.")).toBeVisible();
 
     // Answers persist in local storage.
     await page.reload();
+    await expect(page.getByLabel("20 – 50 triệu ₫")).toBeChecked();
+    await page.getByRole("button", { name: /^Tiếp theo/ }).click();
     await expect(page.getByLabel("Du lịch & hàng không", { exact: true })).toBeChecked();
+    await page.getByRole("button", { name: "Quay lại" }).click();
+    await expect(page.getByLabel("20 – 50 triệu ₫")).toBeVisible();
   });
 
   test("unknown annual fee yields a provisional score, not a perfect match", async ({ page }) => {
     await page.goto("/the-tin-dung/bien-xanh-everyday-world/phu-hop");
+    const next = page.getByRole("button", { name: /^Tiếp (theo|tục)/ });
     await page.getByLabel("5 – 10 triệu ₫").check();
+    await next.click();
     await page.getByLabel("Cà phê & đồ uống", { exact: true }).check();
+    await next.click();
+    await next.click();
     await page.getByLabel("Hoàn tiền").check();
+    await next.click();
     await page.getByLabel("Chỉ thẻ miễn phí thường niên").check();
+    await next.click();
     await page.getByLabel("Tôi chưa chắc chắn").check();
     await page.getByRole("button", { name: /Xem mức độ phù hợp/ }).click();
     const result = page.getByTestId("compatibility-result");

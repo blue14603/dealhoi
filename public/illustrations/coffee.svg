@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" role="img" aria-label="Ly cà phê đá">
+  <defs>
+    <linearGradient id="lid" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9aa3b2"/><stop offset=".22" stop-color="#f4f6fa"/><stop offset=".5" stop-color="#c4cad4"/><stop offset=".78" stop-color="#ffffff"/><stop offset="1" stop-color="#8a93a3"/>
+    </linearGradient>
+    <linearGradient id="coffee" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9c9a2"/><stop offset=".18" stop-color="#c88f55"/><stop offset=".55" stop-color="#8a5326"/><stop offset="1" stop-color="#3f2410"/>
+    </linearGradient>
+    <linearGradient id="milk" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff3e2" stop-opacity=".9"/><stop offset="1" stop-color="#f1d3ad" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".38"/><stop offset=".12" stop-color="#ffffff" stop-opacity=".05"/><stop offset=".8" stop-color="#ffffff" stop-opacity=".02"/><stop offset="1" stop-color="#a9c7ff" stop-opacity=".35"/>
+    </linearGradient>
+    <linearGradient id="straw" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1a3fc4"/><stop offset=".45" stop-color="#5c84ff"/><stop offset="1" stop-color="#1636a8"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset=".5" stop-color="#a9c7ff" stop-opacity=".2"/><stop offset="1" stop-color="#416dff" stop-opacity=".9"/>
+    </linearGradient>
+    <radialGradient id="shadow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#000" stop-opacity=".7"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <clipPath id="cup"><path d="M52 96 H188 L170 296 Q169 304 160 304 H80 Q71 304 70 296 Z"/></clipPath>
+  </defs>
+  <ellipse cx="120" cy="308" rx="78" ry="9" fill="url(#shadow)"/>
+  <!-- straw -->
+  <rect x="134" y="8" width="13" height="200" rx="6" transform="rotate(10 140 100)" fill="url(#straw)"/>
+  <!-- liquid -->
+  <g clip-path="url(#cup)">
+    <rect x="40" y="122" width="170" height="190" fill="url(#coffee)"/>
+    <path d="M40 140 C80 120 120 170 160 140 S210 150 210 150 V200 C170 220 120 175 80 205 S40 190 40 190 Z" fill="url(#milk)"/>
+    <!-- ice cubes -->
+    <g fill="#ffffff" fill-opacity=".16" stroke="#ffffff" stroke-opacity=".55" stroke-width="1.5">
+      <rect x="66" y="118" width="40" height="36" rx="7" transform="rotate(-12 86 136)"/>
+      <rect x="112" y="112" width="44" height="38" rx="8" transform="rotate(9 134 131)"/>
+      <rect x="88" y="150" width="38" height="34" rx="7" transform="rotate(18 107 167)"/>
+      <rect x="132" y="158" width="34" height="30" rx="6" transform="rotate(-8 149 173)"/>
+    </g>
+  </g>
+  <!-- glass body -->
+  <path d="M52 96 H188 L170 296 Q169 304 160 304 H80 Q71 304 70 296 Z" fill="url(#glass)" stroke="url(#rim)" stroke-width="2"/>
+  <path d="M64 108 L80 290" stroke="#ffffff" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>
+  <!-- condensation -->
+  <g fill="#ffffff" fill-opacity=".6">
+    <circle cx="150" cy="210" r="2.4"/><circle cx="160" cy="236" r="1.6"/><circle cx="96" cy="250" r="2"/><circle cx="142" cy="268" r="2.8"/><circle cx="110" cy="222" r="1.4"/><circle cx="166" cy="190" r="1.8"/><circle cx="88" cy="196" r="1.5"/><ellipse cx="128" cy="244" rx="1.6" ry="3"/><ellipse cx="156" cy="282" rx="1.4" ry="2.6"/>
+  </g>
+  <!-- dome lid -->
+  <path d="M44 96 Q46 86 58 86 H182 Q194 86 196 96 Z" fill="url(#lid)"/>
+  <path d="M62 86 Q70 44 120 42 Q170 44 178 86 Z" fill="#ffffff" fill-opacity=".12" stroke="url(#lid)" stroke-width="3"/>
+  <path d="M78 74 Q90 54 116 52" stroke="#ffffff" stroke-opacity=".8" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <rect x="42" y="94" width="156" height="6" rx="3" fill="url(#lid)"/>
+</svg>

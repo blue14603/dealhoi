@@ -32,7 +32,7 @@ export default async function ComparePage({ searchParams }: { searchParams: SP }
     const categories = await listCategories({ browsableOnly: true });
     return (
       <div className="mx-auto max-w-2xl py-12">
-        <h1 className="mb-6 text-2xl font-bold">So sánh ưu đãi</h1>
+        <h1 className="font-display mb-6 text-4xl font-bold">So sánh ưu đãi</h1>
         <EmptyState title={merchantSlug || categorySlug ? "Không tìm thấy cửa hàng hoặc danh mục này" : "Bạn muốn so sánh ưu đãi cho gì?"}>
           Tìm theo cửa hàng, sản phẩm hoặc chọn một danh mục.
         </EmptyState>
@@ -56,16 +56,19 @@ export default async function ComparePage({ searchParams }: { searchParams: SP }
 
   return (
     <div className="py-8">
-      <nav aria-label="Đường dẫn" className="mb-3 text-sm text-ink-muted">
+      <nav aria-label="Đường dẫn" className="mb-6 text-sm text-ink-muted">
         {target.merchant ? (
           <>
-            Danh mục: <a href={`/so-sanh?category=${target.merchant.category.slug}`} className="hover:text-brand">{target.merchant.category.name}</a>
+            Danh mục: <a href={`/so-sanh?category=${target.merchant.category.slug}`} className="hover:text-accent">{target.merchant.category.name}</a>
           </>
         ) : (
           "Danh mục chi tiêu"
         )}
       </nav>
-      <h1 className="text-2xl font-extrabold sm:text-3xl">Ưu đãi thẻ tín dụng cho {name}</h1>
+      <p className="eyebrow">So sánh ưu đãi</p>
+      <h1 className="font-display mt-3 text-[2.25rem] leading-[1] font-bold sm:text-5xl">
+        Ưu đãi thẻ cho <span className="text-ice">{name}</span>
+      </h1>
       <p className="mt-2 text-sm text-ink-muted" data-testid="offer-summary">
         <strong className="text-ink">{data.activeDeals.length}</strong> ưu đãi đã xác minh đang áp dụng
         {target.merchant && ` (${specificCount} ưu đãi riêng tại ${name}, ${data.activeDeals.length - specificCount} ưu đãi theo danh mục hoặc chi tiêu chung)`}
