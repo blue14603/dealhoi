@@ -299,8 +299,13 @@ describe("full run", () => {
     expect(r.bundles.stubs.merchants).toEqual([]);
     expect(r.bundles.stubs.cards.find((c) => c.slug === "techcombank-visa-signature")).toMatchObject({
       official_url: "https://techcombank.com/khach-hang-ca-nhan/chi-tieu/the/the-tin-dung/techcombank-visa-signature",
+      source_url: "https://techcombank.com/khach-hang-ca-nhan/chi-tieu/the/the-tin-dung/techcombank-visa-signature",
       network: "Visa",
     });
+    // Each card page is also a source, so the card can be verified after review.
+    expect(r.bundles.stubs.sources.map((x) => x.url)).toContain(
+      "https://techcombank.com/khach-hang-ca-nhan/chi-tieu/the/the-tin-dung/techcombank-visa-signature",
+    );
     expect(r.unknownCardSlugs.map((c) => c.slug)).not.toContain("techcombank-visa-signature");
     // A card page whose slug equals the bank's key is matched as-is.
     expect(first.cards.map((c) => c.card_slug)).toContain("the-tin-dung-techcombank-visa-classic");
@@ -327,7 +332,7 @@ describe("full run", () => {
     try {
       const third = await runCrawl({ ...base, caller, state, today: "2026-03-03" });
       expect(third.bundles.main.deals.length).toBeGreaterThan(0);
-      expect(third.bundles.stubs).toEqual({ cards: [], merchants: [] });
+      expect(third.bundles.stubs).toEqual({ sources: [], cards: [], merchants: [] });
     } finally {
       pages[SHOPEE_URL] = shopeeHtml;
     }

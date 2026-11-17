@@ -15,7 +15,8 @@ import type { BankAdapter, ParsedPromo } from "./types";
 
 export interface Bundles {
   main: { sources: SourceImport[]; deals: DealImport[] };
-  stubs: { cards: Record<string, unknown>[]; merchants: Record<string, unknown>[] };
+  /** Card pages are added as sources so a card can be verified once its page is reviewed. */
+  stubs: { sources: SourceImport[]; cards: Record<string, unknown>[]; merchants: Record<string, unknown>[] };
   invalid: { importKey: string; problems: string[] }[];
 }
 
@@ -67,7 +68,7 @@ export function buildBundles(args: {
   cardPageBySlug: Map<string, string>;
 }): Bundles {
   const { bank } = args;
-  const bundles: Bundles = { main: { sources: [], deals: [] }, stubs: { cards: [], merchants: [] }, invalid: [] };
+  const bundles: Bundles = { main: { sources: [], deals: [] }, stubs: { sources: [], cards: [], merchants: [] }, invalid: [] };
   const cardStubs = new Map<string, Record<string, unknown>>();
   const merchantStubs = new Map<string, Record<string, unknown>>();
 
@@ -104,6 +105,8 @@ export function buildBundles(args: {
             card_tier: null,
             annual_fee_vnd: null,
             official_url: args.cardPageBySlug.get(c.slug) ?? null,
+            // A verified card must cite a reviewed source: its official page.
+            source_url: args.cardPageBySlug.get(c.slug) ?? null,
             verification_status: "draft",
             is_active: true,
           });
@@ -163,6 +166,19 @@ export function buildBundles(args: {
   }
 
   bundles.stubs.cards = [...cardStubs.values()];
+  bundles.stubs.sources = bundles.stubs.cards
+    .filter((c) => typeof c.source_url === "string")
+    .map((c) => ({
+      url: c.source_url as string,
+      publisher: bank.name,
+      source_type: "official_bank" as const,
+      source_excerpt: null,
+      published_at: null,
+      retrieved_at: args.retrievedAt,
+      verified_at: null,
+      verification_notes: null,
+      is_demo: false,
+    }));
   bundles.stubs.merchants = [...merchantStubs.values()];
   return bundles;
 }

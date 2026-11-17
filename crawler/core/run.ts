@@ -236,6 +236,8 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
   const known = { cards: new Set(emitted.cards), merchants: new Set(emitted.merchants) };
   bundles.stubs.cards = bundles.stubs.cards.filter((c) => !known.cards.has(String(c.slug)));
   bundles.stubs.merchants = bundles.stubs.merchants.filter((m) => !known.merchants.has(String(m.slug)));
+  const cardSources = new Set(bundles.stubs.cards.map((c) => c.source_url));
+  bundles.stubs.sources = bundles.stubs.sources.filter((s) => cardSources.has(s.url));
   const previous = o.state.emittedStubs ?? { cards: [], merchants: [] };
   o.state.emittedStubs = {
     cards: [...new Set([...previous.cards, ...bundles.stubs.cards.map((c) => String(c.slug))])].sort(),
