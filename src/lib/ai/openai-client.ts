@@ -46,6 +46,11 @@ export type StructuredCaller = (req: StructuredRequest) => Promise<unknown>;
 
 const TRANSIENT_STATUS = new Set([408, 409, 429, 500, 502, 503, 504]);
 
+/** True for errors meaning the account has no credit left; retrying cannot help. */
+export function isQuotaError(message: string): boolean {
+  return /insufficient_quota|credit_balance_exhausted|billing_hard_limit_reached/.test(message);
+}
+
 export function createStructuredCaller(cfg: AiClientConfig): StructuredCaller {
   const fetchImpl = cfg.fetchImpl ?? fetch;
   const sleep = cfg.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
@@ -77,16 +82,16 @@ export function createStructuredCaller(cfg: AiClientConfig): StructuredCaller {
         });
         if (!res.ok) {
           // OpenAI explains failures as {"error": {"code": "...", "type": "..."}}; keep only the code.
-          let code: string | undefined;
+          let codes: string[] = [];
           try {
-            const err = (JSON.parse(await res.text()) as { error?: { code?: string; type?: string } }).error;
-            code = err?.code ?? err?.type;
+            const err = (JSON.parse(await res.text()) as { error?: { code?: string | null; type?: string | null } }).error;
+            codes = [...new Set([err?.type, err?.code].filter((c): c is string => Boolean(c)))];
           } catch {
             // No JSON body.
           }
-          lastError = new AiUnavailableError(`OpenAI HTTP ${res.status}${code ? ` (${code})` : ""}`);
+          lastError = new AiUnavailableError(`OpenAI HTTP ${res.status}${codes.length ? ` (${codes.join(", ")})` : ""}`);
           // An exhausted quota is not transient: retrying cannot succeed.
-          if (TRANSIENT_STATUS.has(res.status) && code !== "insufficient_quota") continue;
+          if (TRANSIENT_STATUS.has(res.status) && !isQuotaError(codes.join(" "))) continue;
           throw lastError; // 400/401/403/404: not retryable
         }
         const json = (await res.json()) as {
@@ -104,7 +109,7 @@ export function createStructuredCaller(cfg: AiClientConfig): StructuredCaller {
         }
       } catch (e) {
         if (e instanceof AiInvalidResponseError) throw e;
-        if (e instanceof AiUnavailableError && (!String(e.message).match(/HTTP (408|409|429|5\d\d)/) || e.message.includes("insufficient_quota"))) throw e;
+        if (e instanceof AiUnavailableError && (!String(e.message).match(/HTTP (408|409|429|5\d\d)/) || isQuotaError(e.message))) throw e;
         lastError = e;
       } finally {
         clearTimeout(timer);

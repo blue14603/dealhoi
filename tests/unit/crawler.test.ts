@@ -394,8 +394,15 @@ describe("OpenAI error details", () => {
     await expect(run()).rejects.toThrow("OpenAI HTTP 429 (insufficient_quota)");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
+  it("does not retry an exhausted credit balance (real OpenAI response)", async () => {
+    const { fetchImpl, run } = call(429, {
+      error: { message: "You have no credits remaining.", type: "insufficient_quota", param: null, code: "credit_balance_exhausted" },
+    });
+    await expect(run()).rejects.toThrow("OpenAI HTTP 429 (insufficient_quota, credit_balance_exhausted)");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
   it("still retries rate limits", async () => {
-    const { fetchImpl, run } = call(429, { error: { code: "rate_limit_exceeded" } });
+    const { fetchImpl, run } = call(429, { error: { type: "requests", code: "rate_limit_exceeded" } });
     await expect(run()).rejects.toThrow("AI service unavailable after retries");
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });

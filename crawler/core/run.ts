@@ -1,4 +1,4 @@
-import type { StructuredCaller } from "@/lib/ai/openai-client";
+import { isQuotaError, type StructuredCaller } from "@/lib/ai/openai-client";
 import { buildBundles, type Bundles } from "./bundle";
 import { extractOffers, type ExtractionResult, type Offer } from "./extract";
 import { RobotsDisallowedError } from "./http";
@@ -157,7 +157,7 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
       const reason = describeError(e);
       mark("error", null, promo.expiryDate);
       pages.push({ url, outcome: "error", title: promo.title, detail: `LLM: ${reason}` });
-      if (++consecutiveLlmErrors >= MAX_CONSECUTIVE_LLM_ERRORS || reason.includes("insufficient_quota") || /HTTP 401/.test(reason)) {
+      if (++consecutiveLlmErrors >= MAX_CONSECUTIVE_LLM_ERRORS || isQuotaError(reason) || /HTTP 401/.test(reason)) {
         llmStopped = reason;
         warnings.push(`Đã ngừng gọi AI sau lỗi: ${reason}. Các trang còn lại chỉ được phân tích, sẽ trích xuất ở lần chạy sau.`);
         log(`Stopping LLM calls: ${reason}`);
