@@ -41,6 +41,18 @@ export interface RunReport {
   bundles: Bundles;
 }
 
+/** Error text including the underlying cause (HTTP status and code, timeout, network). */
+export function describeError(e: unknown): string {
+  if (!(e instanceof Error)) return String(e);
+  const cause = e.cause instanceof Error ? e.cause : null;
+  if (!cause) return e.message;
+  const reason = cause.name === "AbortError" ? "hết thời gian chờ (timeout)" : cause.message;
+  return `${e.message}: ${reason}`;
+}
+
+/** Stop calling the model after this many consecutive failures in one run. */
+const MAX_CONSECUTIVE_LLM_ERRORS = 3;
+
 export async function runCrawl(o: RunOptions): Promise<RunReport> {
   const log = o.log ?? (() => {});
   const discovery = await o.bank.discover(o.fetcher);
@@ -66,6 +78,8 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
   const unknownCards = new Map<string, { slug: string; title: string; key: string }>();
   let fetched = 0;
   let consecutiveEmpty = 0;
+  let consecutiveLlmErrors = 0;
+  let llmStopped: string | null = null;
 
   for (const { url } of discovery.promos) {
     const prior = o.state.pages[url];
@@ -122,7 +136,7 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
       pages.push({ url, outcome: "unchanged", title: promo.title });
       continue;
     }
-    if (!o.caller) {
+    if (!o.caller || llmStopped) {
       pages.push({ url, outcome: "parsed", title: promo.title });
       continue; // state not updated, so the page is extracted on the next LLM run
     }
@@ -135,12 +149,19 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
         : extraction.rejected.length
           ? "needs_manual"
           : "no_offers";
+      consecutiveLlmErrors = 0;
       mark(outcome, promo.contentHash, promo.expiryDate);
       pages.push({ url, outcome, title: promo.title, extraction });
       if (extraction.accepted.length) results.push({ promo, offers: extraction.accepted });
     } catch (e) {
+      const reason = describeError(e);
       mark("error", null, promo.expiryDate);
-      pages.push({ url, outcome: "error", title: promo.title, detail: `LLM: ${e instanceof Error ? e.message : String(e)}` });
+      pages.push({ url, outcome: "error", title: promo.title, detail: `LLM: ${reason}` });
+      if (++consecutiveLlmErrors >= MAX_CONSECUTIVE_LLM_ERRORS || reason.includes("insufficient_quota") || /HTTP 401/.test(reason)) {
+        llmStopped = reason;
+        warnings.push(`Đã ngừng gọi AI sau lỗi: ${reason}. Các trang còn lại chỉ được phân tích, sẽ trích xuất ở lần chạy sau.`);
+        log(`Stopping LLM calls: ${reason}`);
+      }
     }
   }
 

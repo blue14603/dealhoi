@@ -4,6 +4,7 @@ import { classifyUrls, parsePromotionPage, parseVnDate, techcombank } from "../.
 import { importKey } from "../../crawler/core/bundle";
 import { extractOffers, validateOffer, type Offer } from "../../crawler/core/extract";
 import { decodeEntities, htmlToText } from "../../crawler/core/html";
+import { AiUnavailableError, createStructuredCaller } from "@/lib/ai/openai-client";
 import { createPoliteFetcher, RobotsDisallowedError } from "../../crawler/core/http";
 import { parseRobots } from "../../crawler/core/robots";
 import { renderReport, runCrawl } from "../../crawler/core/run";
@@ -348,8 +349,54 @@ describe("full run", () => {
     expect(slugs).toContain("techcombank-visa-eco");
   });
 
+  it("stops calling the model after repeated failures and keeps pages for the next run", async () => {
+    const urls = ["a", "b", "c", "d"].map((x) => `https://techcombank.com/khach-hang-ca-nhan/uu-dai/promo-${x}`);
+    const set = `<urlset>${urls.map((u) => `<url><loc>${u}</loc></url>`).join("")}</urlset>`;
+    const f: Fetcher = async (url) =>
+      url.endsWith("sitemap-index.xml")
+        ? { status: 200, text: index }
+        : url.endsWith("vi-sitemap.xml")
+          ? { status: 200, text: set }
+          : { status: 200, text: shopeeHtml };
+    const caller = vi.fn().mockRejectedValue(new AiUnavailableError("AI service unavailable after retries", new AiUnavailableError("OpenAI HTTP 429 (rate_limit_exceeded)")));
+    const state: CrawlState = { pages: {}, lastPromoCount: null };
+    const r = await runCrawl({ ...base, fetcher: f, caller, state, today: "2026-03-01" });
+    expect(caller).toHaveBeenCalledTimes(3);
+    expect(r.pages.filter((p) => p.outcome === "error")[0].detail).toBe(
+      "LLM: AI service unavailable after retries: OpenAI HTTP 429 (rate_limit_exceeded)",
+    );
+    expect(r.pages.at(-1)?.outcome).toBe("parsed");
+    expect(state.pages[urls[3]]).toBeUndefined();
+    expect(r.warnings.join(" ")).toContain("Đã ngừng gọi AI");
+  });
+
+  it("stops at once when the OpenAI quota is exhausted", async () => {
+    const caller = vi.fn().mockRejectedValue(new AiUnavailableError("OpenAI HTTP 429 (insufficient_quota)"));
+    const r = await runCrawl({ ...base, caller, state: { pages: {}, lastPromoCount: null }, today: "2026-03-01" });
+    expect(caller).toHaveBeenCalledTimes(1);
+    expect(r.warnings.join(" ")).toContain("insufficient_quota");
+  });
+
   it("warns when the number of promotions drops sharply", async () => {
     const r = await runCrawl({ ...base, caller: null, state: { pages: {}, lastPromoCount: 200 }, today: "2026-03-01" });
     expect(r.warnings.join(" ")).toContain("200 → 2");
+  });
+});
+
+describe("OpenAI error details", () => {
+  const call = (status: number, body: unknown) => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
+    const caller = createStructuredCaller({ apiKey: "k", model: "m", baseUrl: "http://x", timeoutMs: 1000, maxOutputTokens: 10, fetchImpl, sleep: async () => {} });
+    return { fetchImpl, run: () => caller({ messages: [], schemaName: "s", jsonSchema: {} }) };
+  };
+  it("includes the error code and does not retry an exhausted quota", async () => {
+    const { fetchImpl, run } = call(429, { error: { code: "insufficient_quota", type: "insufficient_quota" } });
+    await expect(run()).rejects.toThrow("OpenAI HTTP 429 (insufficient_quota)");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+  it("still retries rate limits", async () => {
+    const { fetchImpl, run } = call(429, { error: { code: "rate_limit_exceeded" } });
+    await expect(run()).rejects.toThrow("AI service unavailable after retries");
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 });

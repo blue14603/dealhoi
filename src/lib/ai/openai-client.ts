@@ -76,8 +76,17 @@ export function createStructuredCaller(cfg: AiClientConfig): StructuredCaller {
           signal: controller.signal,
         });
         if (!res.ok) {
-          lastError = new AiUnavailableError(`OpenAI HTTP ${res.status}`);
-          if (TRANSIENT_STATUS.has(res.status)) continue;
+          // OpenAI explains failures as {"error": {"code": "...", "type": "..."}}; keep only the code.
+          let code: string | undefined;
+          try {
+            const err = (JSON.parse(await res.text()) as { error?: { code?: string; type?: string } }).error;
+            code = err?.code ?? err?.type;
+          } catch {
+            // No JSON body.
+          }
+          lastError = new AiUnavailableError(`OpenAI HTTP ${res.status}${code ? ` (${code})` : ""}`);
+          // An exhausted quota is not transient: retrying cannot succeed.
+          if (TRANSIENT_STATUS.has(res.status) && code !== "insufficient_quota") continue;
           throw lastError; // 400/401/403/404: not retryable
         }
         const json = (await res.json()) as {
@@ -95,7 +104,7 @@ export function createStructuredCaller(cfg: AiClientConfig): StructuredCaller {
         }
       } catch (e) {
         if (e instanceof AiInvalidResponseError) throw e;
-        if (e instanceof AiUnavailableError && !String(e.message).match(/HTTP (408|409|429|5\d\d)/)) throw e;
+        if (e instanceof AiUnavailableError && (!String(e.message).match(/HTTP (408|409|429|5\d\d)/) || e.message.includes("insufficient_quota"))) throw e;
         lastError = e;
       } finally {
         clearTimeout(timer);
