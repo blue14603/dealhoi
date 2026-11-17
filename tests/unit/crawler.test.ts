@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { classifyUrls, parsePromotionPage, parseVnDate, techcombank } from "../../crawler/banks/techcombank";
 import { importKey, normalizeOffer } from "../../crawler/core/bundle";
-import { extractOffers, validateOffer, type Offer } from "../../crawler/core/extract";
+import { extractOffers, quoteFound, validateOffer, type Offer } from "../../crawler/core/extract";
 import { decodeEntities, htmlToText } from "../../crawler/core/html";
 import { AiUnavailableError, createStructuredCaller } from "@/lib/ai/openai-client";
 import { createPoliteFetcher, RobotsDisallowedError } from "../../crawler/core/http";
@@ -203,7 +203,7 @@ describe("offer validation", () => {
     );
     expect(problems).toEqual(
       expect.arrayContaining([
-        "evidence không trích nguyên văn từ trang",
+        expect.stringContaining("evidence không trích nguyên văn từ trang"),
         "card_keys không có trong danh sách thẻ: the-tin-dung-khong-ton-tai",
         'merchant_key "lazada" không có trong danh sách cửa hàng',
         "start_date 2026-02-01 không có trong trang",
@@ -483,5 +483,30 @@ describe("fixes from the first live run", () => {
     });
     const user = caller.mock.calls[0][0].messages[1].content as string;
     expect(user).toContain('"name":"Mua sắm trực tuyến"');
+  });
+});
+
+describe("quote matching (China Airlines page from the live run)", () => {
+  const page = `Giảm 15% khi mua vé máy bay tại China Airlines
+
+## Nội dung ưu đãi
+Thời gian: Từ ngày 01/07/2026 đến ngày 31/12/2026
+Nội dung ưu đãi: Giảm 15% không giới hạn trên giá công bố tại ứng dụng điện thoại và website (không bao gồm thuế) (https://www.china-airlines.com/tw/en) cho tất cả các chuyến bay từ từ Tp.HCM/ Hà Nội/ Đà Nẵng đến Đài Bắc/Mĩ-Canada/Châu Âu/Châu Úc/Đông Nam Á khi mua vé tại ứng dụng điện thoại và website của China Airlines (https://www.china-airlines.com/tw/en).`;
+
+  it("accepts quotes that drop links, brackets or punctuation", () => {
+    expect(quoteFound(page, "Giảm 15% không giới hạn trên giá công bố tại ứng dụng điện thoại và website (không bao gồm thuế) cho tất cả các chuyến bay")).toBe(true);
+    expect(quoteFound(page, "Giảm 15% không giới hạn trên giá công bố tại ứng dụng điện thoại và website không bao gồm thuế")).toBe(true);
+  });
+  it("accepts several real passages joined with an ellipsis", () => {
+    expect(quoteFound(page, "Thời gian: Từ ngày 01/07/2026 đến ngày 31/12/2026 ... Giảm 15% không giới hạn trên giá công bố")).toBe(true);
+  });
+  it("rejects invented or altered quotes", () => {
+    expect(quoteFound(page, "Giảm 20% không giới hạn trên giá công bố")).toBe(false);
+    expect(quoteFound(page, "Thời gian: Từ ngày 01/07/2026 ... Hoàn tiền 500.000 VNĐ cho mọi giao dịch")).toBe(false);
+    expect(quoteFound(page, "")).toBe(false);
+  });
+  it("moves in-store offers out of online shopping", () => {
+    expect(normalizeOffer(offer({ payment_channel: "offline" })).category_slug).toBe("chi-tieu-chung");
+    expect(normalizeOffer(offer({ payment_channel: "online" })).category_slug).toBe("mua-sam-truc-tuyen");
   });
 });

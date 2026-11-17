@@ -138,8 +138,32 @@ export function buildUserMessage(promo: ParsedPromo, today: string, categories: 
 // Deterministic validation
 // ---------------------------------------------------------------------------
 
+/** Normalises text for quote matching: case, links, quotes, brackets and punctuation are ignored. */
 function squash(s: string): string {
-  return s.normalize("NFC").replace(/\s+/g, " ").replace(/^[-\s]+/, "").trim().toLowerCase();
+  return s
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[“”"'‘’()[\]{}*#…]/g, " ")
+    .replace(/[.,;:!?/–—-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * True when the quote is on the page. A quote may join several passages with
+ * "..." or line breaks; each passage of at least a few words must then appear.
+ */
+export function quoteFound(text: string, quote: string): boolean {
+  const page = squash(text);
+  const whole = squash(quote);
+  if (!whole) return false;
+  if (page.includes(whole)) return true;
+  const fragments = quote
+    .split(/\.{3}|…|\n|(?<=[.;:])\s+/)
+    .map(squash)
+    .filter((f) => f.split(" ").length >= 3);
+  return fragments.length > 0 && fragments.every((f) => page.includes(f));
 }
 
 /** Dates written as d/m/yyyy in the text, as YYYY-MM-DD. */
@@ -179,8 +203,9 @@ export function validateOffer(offer: Offer, ctx: ValidationContext): string[] {
     problems.push(`installment_months ${offer.installment_months} không có trong trang`);
   }
 
-  if (!offer.evidence.trim() || !squash(promo.text).includes(squash(offer.evidence))) {
-    problems.push("evidence không trích nguyên văn từ trang");
+  if (!quoteFound(promo.text, offer.evidence)) {
+    const shown = offer.evidence.length > 120 ? `${offer.evidence.slice(0, 120)}…` : offer.evidence;
+    problems.push(`evidence không trích nguyên văn từ trang: "${shown}"`);
   }
 
   const known = new Set(promo.creditCards.map((c) => c.key));

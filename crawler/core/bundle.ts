@@ -48,6 +48,8 @@ export function normalizeOffer(offer: Offer): Offer {
   }
   if (o.cap_is_unlimited === true) o.maximum_benefit_vnd = null;
   if (o.minimum_spend_vnd === null) o.minimum_spend_period = null;
+  // Online shopping is for online shops only; an in-store offer falls back to general spending.
+  if (o.category_slug === "mua-sam-truc-tuyen" && o.payment_channel === "offline") o.category_slug = "chi-tieu-chung";
   return o;
 }
 
