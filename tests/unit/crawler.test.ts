@@ -39,6 +39,7 @@ function offer(over: Partial<Offer> = {}): Offer {
     description: "Trả góp bằng thẻ tín dụng Techcombank tại Shopee",
     applies_to: "credit_only",
     is_targeted: false,
+    is_abroad: false,
     card_keys: [],
     benefit_type: "discount",
     offer_type: "temporary",
@@ -520,6 +521,7 @@ Nội dung ưu đãi: Giảm 15% không giới hạn trên giá công bố tại
   it("moves in-store offers out of online shopping", () => {
     expect(normalizeOffer(offer({ payment_channel: "offline" })).category_slug).toBe("chi-tieu-chung");
     expect(normalizeOffer(offer({ payment_channel: "online" })).category_slug).toBe("mua-sam-truc-tuyen");
+    expect(normalizeOffer(offer({ payment_channel: "both" })).category_slug).toBe("chi-tieu-chung");
   });
 });
 
@@ -568,6 +570,16 @@ describe("merchants from the page text (full run feedback)", () => {
     const [deal] = build([offer({ merchant_names: names })]).main.deals;
     expect(deal).toMatchObject({ merchant_slug: null, merchant_scope: "category_wide" });
     expect(deal.terms_and_conditions).toContain("Áp dụng tại: Cửa hàng 1");
+  });
+
+  it("keeps offers usable only abroad as one deal without merchant pages", () => {
+    const b = build([
+      offer({ is_abroad: true, category_slug: "du-lich-hang-khong", merchant_names: ["Don Quijote", "Mitsukoshi", "Isetan"] }),
+    ]);
+    expect(b.main.deals).toHaveLength(1);
+    expect(b.main.deals[0]).toMatchObject({ merchant_slug: null, merchant_scope: "category_wide", category_slug: "du-lich-hang-khong" });
+    expect(b.main.deals[0].terms_and_conditions).toContain("Áp dụng tại: Don Quijote, Mitsukoshi, Isetan");
+    expect(b.stubs.merchants).toEqual([]);
   });
 
   it("flags money offers without a VND amount instead of rejecting them", () => {

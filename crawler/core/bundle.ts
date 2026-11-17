@@ -49,8 +49,8 @@ export function normalizeOffer(offer: Offer): Offer {
   }
   if (o.cap_is_unlimited === true) o.maximum_benefit_vnd = null;
   if (o.minimum_spend_vnd === null) o.minimum_spend_period = null;
-  // Online shopping is for online shops only; an in-store offer falls back to general spending.
-  if (o.category_slug === "mua-sam-truc-tuyen" && o.payment_channel === "offline") o.category_slug = "chi-tieu-chung";
+  // Online shopping is for online shops only; in-store or unknown channels fall back to general spending.
+  if (o.category_slug === "mua-sam-truc-tuyen" && o.payment_channel !== "online") o.category_slug = "chi-tieu-chung";
   return o;
 }
 
@@ -111,12 +111,13 @@ export function buildBundles(args: {
       }
 
       // One deal per merchant, so each shows up when searching that merchant.
+      // Offers usable only abroad stay one deal: overseas shops get no merchant page.
       const names = offer.merchant_scope === "specific_merchant" ? offer.merchant_names : [];
-      const split = names.length > 0 && names.length <= MAX_MERCHANTS_PER_OFFER;
+      const split = !offer.is_abroad && names.length > 0 && names.length <= MAX_MERCHANTS_PER_OFFER;
       const merchants = split
         ? names.map((n) => resolveMerchant(n, args.knownMerchants, promo.merchants, (k) => bank.merchantSlug(k)))
         : [null];
-      const tooMany = names.length > MAX_MERCHANTS_PER_OFFER ? `Áp dụng tại: ${names.join(", ")}` : null;
+      const tooMany = names.length > 0 && !split ? `Áp dụng tại: ${names.join(", ")}` : null;
       const seen = new Set<string>();
 
       for (const m of merchants) {

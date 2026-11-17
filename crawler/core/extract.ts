@@ -28,6 +28,7 @@ export function offerJsonSchema(categorySlugs: string[]) {
       description: { type: "string" },
       applies_to: { type: "string", enum: [...APPLIES_TO] },
       is_targeted: { type: "boolean" },
+      is_abroad: { type: "boolean" },
       card_keys: { type: "array", items: { type: "string" } },
       benefit_type: { type: "string", enum: [...BENEFIT_TYPES] },
       offer_type: { type: "string", enum: [...OFFER_TYPES] },
@@ -51,7 +52,7 @@ export function offerJsonSchema(categorySlugs: string[]) {
       evidence: { type: "string" },
     },
     required: [
-      "title", "description", "applies_to", "is_targeted", "card_keys", "benefit_type", "offer_type", "percentage",
+      "title", "description", "applies_to", "is_targeted", "is_abroad", "card_keys", "benefit_type", "offer_type", "percentage",
       "fixed_amount_vnd", "maximum_benefit_vnd", "cap_period", "cap_is_unlimited", "minimum_spend_vnd",
       "minimum_spend_period", "installment_months", "installment_fee_vnd", "payment_channel", "merchant_scope",
       "merchant_names", "category_slug", "start_date", "end_date", "eligibility_terms", "terms_and_conditions", "evidence",
@@ -71,6 +72,7 @@ export const OfferSchema = z.object({
   description: z.string().min(1),
   applies_to: z.enum(APPLIES_TO),
   is_targeted: z.boolean(),
+  is_abroad: z.boolean(),
   card_keys: z.array(z.string()),
   benefit_type: z.enum(BENEFIT_TYPES),
   offer_type: z.enum(OFFER_TYPES),
@@ -103,6 +105,7 @@ Rules:
 - A page can contain several distinct offers (e.g. installment vs. pay-in-full, credit vs. debit card, different spend tiers with different rewards). Return one offer per distinct reward rule. Spend tiers of the same rule (e.g. 500.000 for orders from 15 triệu, 700.000 from 30 triệu) are separate offers.
 - applies_to: whether the offer is for credit cards (thẻ tín dụng), debit cards (thẻ thanh toán / thẻ ghi nợ), or both.
 - is_targeted: true ONLY when the bank picks individual customers (e.g. "khách hàng nhận được thông báo", "khách hàng được mời", "khách hàng được lựa chọn", "nhận được tin nhắn"). A customer segment or tier anyone in it can use (Priority, Private, Inspire, hội viên, chủ hộ kinh doanh, khách hàng mới) is NOT targeted: set false and describe the segment in eligibility_terms.
+- is_abroad: true when the offer can only be used outside Vietnam (shops, restaurants, attractions, transport or fees in another country). Tickets or hotels booked online from Vietnam (airlines, Agoda, Trip.com) are not abroad. For abroad offers, use the travel category and still list the merchant names.
 - card_keys: the subset of <cards> keys the offer applies to. Empty array if it applies to all listed cards or the page does not say. When the page gives different rewards to different named cards (e.g. 1 triệu for Visa Infinite, 500 nghìn for Visa Signature), set card_keys on each offer accordingly.
 - If the page assigns rewards by card number prefix (BIN, "6 số đầu") rather than by card name, keep card_keys empty and write "Chỉ áp dụng cho thẻ có 6 số đầu: <the BINs for this offer>" in eligibility_terms.
 - Money is integer VND: "500K" = 500000, "1,5 triệu" = 1500000. Percentages are numbers: "10%" = 10.
@@ -113,8 +116,8 @@ Rules:
 - offer_type: temporary for campaigns with dates, welcome for offers when opening a new card, ongoing for permanent card benefits.
 - cap_period / minimum_spend_period: "transaction" for per-order limits ("cho đơn từ", "tối đa ... / giao dịch"), month/quarter/year/campaign for cumulative ones.
 - merchant_scope: specific_merchant when tied to named merchants or brands, category_wide for a spending category, general for any spending.
-- merchant_names: for specific_merchant, the merchant or brand names exactly as written on the page (e.g. ["Agoda"], ["Shopee", "FPT Shop", "CellphoneS"]); use the names in <merchants> when they match. Empty for category_wide and general.
-- category_slug: the best match in <categories> for what the customer buys. "mua-sam-truc-tuyen" only for online marketplaces and online shops (Shopee, Lazada, Tiki…), never for physical stores. Use "chi-tieu-chung" when nothing fits.
+- merchant_names: for specific_merchant, the brand names customers know, as written on the page (e.g. "VAS", not "Công ty Cổ phần Giáo dục Quốc tế Việt Úc (VAS)") (e.g. ["Agoda"], ["Shopee", "FPT Shop", "CellphoneS"]); use the names in <merchants> when they match. Empty for category_wide and general.
+- category_slug: the best match in <categories> for what the customer buys. "mua-sam-truc-tuyen" only for online marketplaces and online shops (Shopee, Lazada, Tiki…), never for physical stores. "ca-phe" only for coffee, tea and drink shops, never for restaurants. Restaurants, ride-hailing (Grab, Be), fashion stores, schools and clinics go to "chi-tieu-chung" when no category fits. Use "chi-tieu-chung" when nothing fits.
 - start_date / end_date: YYYY-MM-DD, only if written on the page.
 - If the offer only applies on certain days (e.g. "ngày 15, 25 hàng tháng", "21/1, 22/1"), or only to some customer segments (Priority, Private), say so in terms_and_conditions / eligibility_terms, in Vietnamese.
 - title and description: short, factual, in Vietnamese, using the page's own figures.
