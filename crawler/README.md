@@ -10,8 +10,11 @@ npm run crawl -- techcombank --no-llm --limit=10   # parse only, no API key need
 ```
 
 ```bash
-OPENAI_API_KEY=sk-... npm run crawl -- techcombank  # parse + extract offers
+npm run crawl -- techcombank                        # parse + extract offers
 ```
+
+The crawler reads `OPENAI_API_KEY` from `.env.local` (git-ignored), so the key
+never has to be typed on the command line or end up in shell history.
 
 Options: `--limit=N` (pages to fetch this run), `--force` (re-extract unchanged
 pages and re-check expired ones), `--no-llm`, `--out=dir`. Set

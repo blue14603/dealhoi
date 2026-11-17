@@ -25,7 +25,19 @@ import type { BankAdapter } from "./core/types";
 
 const BANKS: Record<string, BankAdapter> = { techcombank };
 
+/** Loads .env.local (git-ignored) so API keys never need to be typed on the command line. */
+function loadLocalEnv() {
+  for (const file of [".env.local", ".env"]) {
+    try {
+      process.loadEnvFile(file);
+    } catch {
+      // Missing file: nothing to load.
+    }
+  }
+}
+
 async function main() {
+  loadLocalEnv();
   const args = process.argv.slice(2);
   const bankSlug = args.find((a) => !a.startsWith("--"));
   const opt = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.split("=")[1];
