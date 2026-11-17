@@ -17,7 +17,8 @@
     "db:seed:demo": "tsx --conditions=react-server scripts/seed.ts --demo",
     "data:import": "tsx --conditions=react-server scripts/import.ts",
     "data:generate-demo": "node scripts/generate-demo-data.mjs data/demo/demo-dataset.json",
-    "admin:hash-password": "tsx scripts/hash-password.ts"
+    "admin:hash-password": "tsx scripts/hash-password.ts",
+    "crawl": "tsx crawler/cli.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.3.1",
