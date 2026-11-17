@@ -36,7 +36,14 @@ function loadLocalEnv() {
   }
 }
 
+/** Shows which key is used (last 4 characters only) and where it came from. */
+function describeKey(key: string | undefined, fromShell: boolean): string {
+  if (!key) return "none";
+  return `…${key.slice(-4)} (${fromShell ? "from the shell environment, overrides .env.local" : "from .env.local"})`;
+}
+
 async function main() {
+  const keyFromShell = Boolean(process.env.OPENAI_API_KEY);
   loadLocalEnv();
   const args = process.argv.slice(2);
   const bankSlug = args.find((a) => !a.startsWith("--"));
@@ -47,6 +54,7 @@ async function main() {
   const noLlm = args.includes("--no-llm");
   const apiKey = process.env.OPENAI_API_KEY;
   if (!noLlm && !apiKey) throw new Error("OPENAI_API_KEY is not set. Use --no-llm to parse pages without extraction.");
+  if (!noLlm) console.error(`OpenAI key: ${describeKey(apiKey, keyFromShell)}`);
   const caller = noLlm
     ? null
     : createStructuredCaller({
