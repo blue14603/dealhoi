@@ -112,6 +112,10 @@ describe("Techcombank URL classification", () => {
       `${base}/uu-dai/khuyen-mai-dac-quyen-danh-cho-khach-hang-tham-gia-bao-hiem-thong-qua-techcombank`,
       `${base}/chi-tieu/the/khuyen-mai/chi-tieu-cung-the-thanh-toan-techcombank-hoan-den-1500000-vnd`,
       `${base}/khuyen-mai-moi/abc`,
+      `${base}/tiet-kiem/chuong-trinh-uu-dai`,
+      "https://techcombank.com/thong-tin/blog/uu-dai-the-tin-dung",
+      "https://techcombank.com/khach-hang-doanh-nghiep/uu-dai-tet-danh-cho-doanh-nghiep",
+      "https://techcombank.com/thong-tin/thong-bao/uu-dai-starbucks-voi-the-techcombank-visa",
     ].map((url) => ({ url, lastmod: null })),
   );
   it("finds card pages and skips feature pages", () => {
@@ -126,7 +130,11 @@ describe("Techcombank URL classification", () => {
   });
   it("skips blocklisted slugs and reports unmatched promotion-like URLs", () => {
     expect(r.blocked).toHaveLength(1);
-    expect(r.unmatched).toEqual([`${base}/khuyen-mai-moi/abc`]);
+    // Business, savings and blog sections are ignored; announcements are still reported.
+    expect(r.unmatched).toEqual([
+      `${base}/khuyen-mai-moi/abc`,
+      "https://techcombank.com/thong-tin/thong-bao/uu-dai-starbucks-voi-the-techcombank-visa",
+    ]);
   });
 });
 
@@ -315,6 +323,29 @@ describe("full run", () => {
     const r = await runCrawl({ ...base, caller: null, state: { pages: {}, lastPromoCount: null }, today: "2026-03-01" });
     expect(r.pages.find((p) => p.url === SHOPEE_URL)?.outcome).toBe("parsed");
     expect(r.parsed).toHaveLength(1);
+  });
+
+  it("reports only unmatched URLs not seen in the previous run", async () => {
+    const extra = "https://techcombank.com/lp/tong-hop-uu-dai-thanh-toan-qua-the-techcombank";
+    const withExtra = urlset.replace("</urlset>", `<url><loc>${extra}</loc></url></urlset>`);
+    const f: Fetcher = async (url) =>
+      url.endsWith("vi-sitemap.xml") ? { status: 200, text: withExtra } : pages[url] ? { status: 200, text: pages[url] } : { status: 404, text: "" };
+    const state: CrawlState = { pages: {}, lastPromoCount: null };
+    const first = await runCrawl({ ...base, fetcher: f, caller: null, state, today: "2026-03-01", limit: 0 });
+    expect(first.discovered.unmatched).toEqual([extra]);
+    expect(renderReport(first)).toContain("### /lp/ (1)");
+    const second = await runCrawl({ ...base, fetcher: f, caller: null, state, today: "2026-03-02", limit: 0 });
+    expect(second.discovered).toMatchObject({ unmatched: [], unmatchedTotal: 1 });
+    expect(second.warnings.join(" ")).not.toContain("không khớp mẫu");
+  });
+
+  it("maps known card key aliases", () => {
+    const html = shopeeHtml.replace(
+      "the-tin-dung-techcombank-visa-signature&#34;,&#34;path&#34;:&#34;techcombank:promotions/card-types/the-tin-dung/the-tin-dung-techcombank-visa-signature",
+      "techcombank-visa-eco-card&#34;,&#34;path&#34;:&#34;techcombank:promotions/card-types/the-tin-dung/techcombank-visa-eco-card",
+    );
+    const slugs = parsePromotionPage(SHOPEE_URL, html)!.creditCards.map((c) => c.slug);
+    expect(slugs).toContain("techcombank-visa-eco");
   });
 
   it("warns when the number of promotions drops sharply", async () => {

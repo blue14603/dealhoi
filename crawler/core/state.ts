@@ -26,6 +26,8 @@ export interface CrawlState {
   pages: Record<string, PageState>;
   /** Promotion URL count from the previous run, for the health check. */
   lastPromoCount: number | null;
+  /** Unmatched promotion-like URLs already reported, so only new ones are shown. */
+  seenUnmatched?: string[];
 }
 
 export function loadState(path: string): CrawlState {

@@ -55,6 +55,20 @@ export const SLUG_BLOCKLIST = [
 
 /** URLs containing these words but matching no pattern are reported for review. */
 const PROMO_HINTS = /(uu-dai|khuyen-mai|hoan-tien|giam-gia|chuong-trinh|ctkm)/;
+/**
+ * Sections that are never credit card promotions (business banking, loans,
+ * savings, tools, SEO articles). Their URLs are not reported as unmatched.
+ * Announcements (/thong-tin/thong-bao/) stay reported: new ones can announce
+ * changes to card benefits.
+ */
+const IGNORED_SECTIONS = [
+  "/thong-tin/blog/",
+  "/khach-hang-doanh-nghiep/",
+  "/ho-kinh-doanh-va-doanh-nghiep-nho/",
+  "/khach-hang-ca-nhan/tiet-kiem/",
+  "/khach-hang-ca-nhan/vay/",
+  "/cong-cu-tien-ich/",
+];
 /** Listing pages of the known sections; not promotions themselves. */
 const LISTING_PAGES = new Set([
   `${ORIGIN}/khach-hang-ca-nhan/uu-dai`,
@@ -66,7 +80,10 @@ const LISTING_PAGES = new Set([
  * strips the "the-tin-dung-" prefix; add exceptions here once confirmed
  * against the card pages (the run report lists keys with no card page).
  */
-export const CARD_KEY_ALIASES: Record<string, string> = {};
+export const CARD_KEY_ALIASES: Record<string, string> = {
+  // Card page: /khach-hang-ca-nhan/chi-tieu/the/the-tin-dung/techcombank-visa-eco
+  "techcombank-visa-eco-card": "techcombank-visa-eco",
+};
 
 export function cardSlugFromKey(key: string): string {
   if (CARD_KEY_ALIASES[key]) return CARD_KEY_ALIASES[key];
@@ -95,7 +112,10 @@ export function classifyUrls(urls: { url: string; lastmod: string | null }[]): D
       else promos.push({ ...u, url });
       continue;
     }
-    if (PROMO_HINTS.test(url) && !LISTING_PAGES.has(url) && !/\/en\//.test(url)) unmatched.push(url);
+    const path = url.replace(ORIGIN, "");
+    if (!PROMO_HINTS.test(path) || LISTING_PAGES.has(url) || path.startsWith("/en/")) continue;
+    if (IGNORED_SECTIONS.some((sec) => path.startsWith(sec))) continue;
+    unmatched.push(url);
   }
   return { promos, cards, unmatched, blocked };
 }

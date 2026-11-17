@@ -33,7 +33,7 @@ export interface PageReport {
 export interface RunReport {
   bank: string;
   today: string;
-  discovered: { promos: number; cards: number; blocked: number; unmatched: string[] };
+  discovered: { promos: number; cards: number; blocked: number; unmatched: string[]; unmatchedTotal: number };
   warnings: string[];
   pages: PageReport[];
   parsed: ParsedPromo[];
@@ -51,7 +51,12 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
   else if (prevCount && discovery.promos.length < prevCount * 0.5) {
     warnings.push(`Số URL ưu đãi giảm mạnh: ${prevCount} → ${discovery.promos.length}. Kiểm tra lại cấu hình.`);
   }
-  if (discovery.unmatched.length) warnings.push(`${discovery.unmatched.length} URL giống ưu đãi nhưng không khớp mẫu nào (xem danh sách).`);
+  const seenUnmatched = new Set(o.state.seenUnmatched ?? []);
+  const newUnmatched = discovery.unmatched.filter((u) => !seenUnmatched.has(u));
+  o.state.seenUnmatched = [...discovery.unmatched].sort();
+  if (newUnmatched.length) {
+    warnings.push(`${newUnmatched.length} URL mới giống ưu đãi nhưng không khớp mẫu nào (xem danh sách).`);
+  }
   log(`Discovered ${discovery.promos.length} promotions, ${discovery.cards.length} card pages, ${blocked} skipped by slug.`);
 
   const cardPageBySlug = new Map(discovery.cards.map((c) => [c.url.split("/").pop()!, c.url]));
@@ -155,7 +160,13 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
   return {
     bank: o.bank.slug,
     today: o.today,
-    discovered: { promos: discovery.promos.length, cards: discovery.cards.length, blocked, unmatched: discovery.unmatched },
+    discovered: {
+      promos: discovery.promos.length,
+      cards: discovery.cards.length,
+      blocked,
+      unmatched: newUnmatched,
+      unmatchedTotal: discovery.unmatched.length,
+    },
     warnings,
     pages,
     parsed: parsedAll,
@@ -202,7 +213,20 @@ export function renderReport(r: RunReport): string {
   const errors = r.pages.filter((p) => p.outcome === "error" || p.outcome === "unparseable");
   if (errors.length) lines.push("## Lỗi", ...errors.map((p) => `- ${p.url}: ${p.detail ?? p.outcome}`), "");
   if (r.discovered.unmatched.length) {
-    lines.push("## URL giống ưu đãi nhưng không khớp mẫu", ...r.discovered.unmatched.map((u) => `- ${u}`), "");
+    const bySection = new Map<string, string[]>();
+    for (const u of r.discovered.unmatched) {
+      const parts = new URL(u).pathname.split("/").filter(Boolean);
+      const section = `/${parts.slice(0, Math.min(2, parts.length - 1)).join("/")}/`;
+      bySection.set(section, [...(bySection.get(section) ?? []), u]);
+    }
+    lines.push(
+      `## URL mới giống ưu đãi nhưng không khớp mẫu (${r.discovered.unmatched.length} mới / ${r.discovered.unmatchedTotal} tổng)`,
+      "Chỉ liệt kê URL chưa thấy ở lần chạy trước.",
+      "",
+    );
+    for (const [section, urls] of [...bySection].sort((a, b) => b[1].length - a[1].length)) {
+      lines.push(`### ${section} (${urls.length})`, ...urls.map((u) => `- ${u}`), "");
+    }
   }
   return lines.join("\n");
 }
