@@ -503,6 +503,12 @@ Nội dung ưu đãi: Giảm 15% không giới hạn trên giá công bố tại
     expect(quoteFound(page, "Giảm 15% không giới hạn trên giá công bố tại ứng dụng điện thoại và website (không bao gồm thuế) cho tất cả các chuyến bay")).toBe(true);
     expect(quoteFound(page, "Giảm 15% không giới hạn trên giá công bố tại ứng dụng điện thoại và website không bao gồm thuế")).toBe(true);
   });
+  it("ignores links written with or without https:// (Panasonic page)", () => {
+    const text = "Trả góp lãi suất 0%, Miễn phí phí chuyển đổi trả góp khi chuyển đổi trả góp qua thẻ tín dụng Techcombank trực tiếp tại website https://www.panasonic.com/vn/ hoặc cửa hàng.";
+    expect(quoteFound(text, "Miễn phí phí chuyển đổi trả góp khi chuyển đổi trả góp qua thẻ tín dụng Techcombank trực tiếp tại website www.panasonic.com/vn hoặc cửa hàng")).toBe(true);
+    expect(quoteFound(text, "trực tiếp tại website panasonic.com/vn hoặc cửa hàng")).toBe(true);
+    expect(quoteFound(text, "trực tiếp tại cửa hàng Panasonic")).toBe(false);
+  });
   it("accepts several real passages joined with an ellipsis", () => {
     expect(quoteFound(page, "Thời gian: Từ ngày 01/07/2026 đến ngày 31/12/2026 ... Giảm 15% không giới hạn trên giá công bố")).toBe(true);
   });

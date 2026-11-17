@@ -144,7 +144,9 @@ function squash(s: string): string {
   return s
     .normalize("NFC")
     .toLowerCase()
-    .replace(/https?:\/\/\S+/g, " ")
+    // Links in any form: "https://…", "www.…" or a bare domain such as "panasonic.com/vn".
+    .replace(/(https?:\/\/|www\.)\S+/g, " ")
+    .replace(/\b[a-z0-9-]+(\.[a-z0-9-]+)*\.(com|vn|net|org|asia|io)(\/\S*)?/g, " ")
     .replace(/[“”"'‘’()[\]{}*#…]/g, " ")
     .replace(/[.,;:!?/–—-]+/g, " ")
     .replace(/\s+/g, " ")
