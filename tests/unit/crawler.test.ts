@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { classifyUrls, parsePromotionPage, parseVnDate, techcombank } from "../../crawler/banks/techcombank";
-import { importKey } from "../../crawler/core/bundle";
+import { importKey, normalizeOffer } from "../../crawler/core/bundle";
 import { extractOffers, validateOffer, type Offer } from "../../crawler/core/extract";
 import { decodeEntities, htmlToText } from "../../crawler/core/html";
 import { AiUnavailableError, createStructuredCaller } from "@/lib/ai/openai-client";
 import { createPoliteFetcher, RobotsDisallowedError } from "../../crawler/core/http";
 import { parseRobots } from "../../crawler/core/robots";
-import { renderReport, runCrawl } from "../../crawler/core/run";
+import { renderReport, runCrawl, tierNotes } from "../../crawler/core/run";
 import { parseSitemap } from "../../crawler/core/sitemap";
 import type { CrawlState } from "../../crawler/core/state";
 import type { Fetcher } from "../../crawler/core/types";
@@ -16,6 +16,7 @@ const SHOPEE_URL =
   "https://techcombank.com/khach-hang-ca-nhan/uu-dai/uu-dai-len-den-700k-khi-thanh-toan-bang-the-tin-dung-the-thanh-toan-techcombank-tai-shopee";
 const shopeeHtml = readFileSync("tests/fixtures/crawler/tcb-shopee.html", "utf8");
 const CATEGORIES = ["ca-phe", "mua-sam-truc-tuyen", "dien-tu-cong-nghe", "du-lich-hang-khong", "giai-tri-su-kien", "chi-tieu-chung"];
+const CATEGORY_INFO = CATEGORIES.map((slug) => ({ slug, name: slug }));
 
 const TCB_ROBOTS = `Sitemap: https://techcombank.com/sitemap-index.xml
 
@@ -35,6 +36,7 @@ function offer(over: Partial<Offer> = {}): Offer {
     title: "Tặng 500.000 đồng khi trả góp từ 15 triệu tại Shopee",
     description: "Trả góp bằng thẻ tín dụng Techcombank tại Shopee",
     applies_to: "credit_only",
+    is_targeted: false,
     card_keys: [],
     benefit_type: "discount",
     offer_type: "temporary",
@@ -152,7 +154,7 @@ describe("Techcombank page parsing", () => {
     expect(promo.creditCards.map((c) => c.slug)).toEqual([
       "techcombank-priority-visa-signature",
       "techcombank-visa-signature",
-      "techcombank-visa-infinite",
+      "techcombank-private-visa-infinite",
       "techcombank-visa-classic",
       "vietnam-airlines-techcombank-visa-platinum",
       "vietnam-airlines-techcombank-visa-gold",
@@ -256,7 +258,7 @@ describe("full run", () => {
     bank: techcombank,
     fetcher,
     retrievedAt: "2026-03-01T02:00:00.000Z",
-    categorySlugs: CATEGORIES,
+    categories: CATEGORY_INFO,
     knownMerchantSlugs: new Set(["shopee"]),
   };
 
@@ -299,7 +301,7 @@ describe("full run", () => {
     expect(r.unknownCardSlugs.map((c) => c.slug)).not.toContain("techcombank-visa-signature");
     // A card page whose slug equals the bank's key is matched as-is.
     expect(first.cards.map((c) => c.card_slug)).toContain("the-tin-dung-techcombank-visa-classic");
-    expect(r.unknownCardSlugs.map((c) => c.slug)).toContain("techcombank-visa-infinite");
+    expect(r.unknownCardSlugs.map((c) => c.slug)).toContain("techcombank-private-visa-infinite");
     expect(r.pages.find((p) => p.outcome === "unparseable")).toBeTruthy();
     expect(renderReport(r)).toContain("Ưu đãi nháp trong bundle: 2");
 
@@ -405,5 +407,81 @@ describe("OpenAI error details", () => {
     const { fetchImpl, run } = call(429, { error: { type: "requests", code: "rate_limit_exceeded" } });
     await expect(run()).rejects.toThrow("AI service unavailable after retries");
     expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("fixes from the first live run", () => {
+  const promo = parsePromotionPage(SHOPEE_URL, shopeeHtml)!;
+
+  it("never stores points as VND and drops a cap period without a cap", () => {
+    const n = normalizeOffer(
+      offer({ benefit_type: "points", fixed_amount_vnd: 150000, cap_period: "campaign", cap_is_unlimited: false, maximum_benefit_vnd: null }),
+    );
+    expect(n).toMatchObject({ fixed_amount_vnd: null, maximum_benefit_vnd: null, cap_period: null, cap_is_unlimited: null });
+    const unlimited = normalizeOffer(offer({ percentage: 15, fixed_amount_vnd: null, cap_is_unlimited: true, maximum_benefit_vnd: 500000 }));
+    expect(unlimited.maximum_benefit_vnd).toBeNull();
+  });
+
+  it("skips offers only for customers the bank contacted", async () => {
+    const caller = vi.fn().mockResolvedValue({ offers: [offer({ is_targeted: true })], notes: null });
+    const r = await extractOffers(caller, promo, { today: "2026-03-01", categorySlugs: CATEGORIES });
+    expect(r.accepted).toHaveLength(0);
+    expect(r.skipped[0].reason).toContain("được ngân hàng mời");
+  });
+
+  it("flags reward tiers that cover the same cards", () => {
+    const a = offer({ title: "Giảm 12%", benefit_type: "discount", percentage: null, fixed_amount_vnd: 500000, minimum_spend_vnd: null });
+    const b = offer({ title: "Giảm 10%", benefit_type: "discount", percentage: null, fixed_amount_vnd: 500000, minimum_spend_vnd: null });
+    expect(tierNotes(promo, [a, b])[0]).toContain("cùng áp dụng cho 6 thẻ");
+    // Spend tiers (different minimum spend) are expected and not flagged.
+    expect(tierNotes(promo, [offer(), offer({ minimum_spend_vnd: 30000000 })])).toEqual([]);
+    // Disjoint card lists are not flagged.
+    const c = offer({ card_keys: ["the-tin-dung-techcombank-visa-signature"], minimum_spend_vnd: null });
+    const d = offer({ card_keys: ["the-tin-dung-techcombank-visa-classic"], minimum_spend_vnd: null });
+    expect(tierNotes(promo, [c, d])).toEqual([]);
+  });
+
+  it("extracts identical pages published under two URLs only once", async () => {
+    const urls = ["promo-a", "promo-a1"].map((x) => `https://techcombank.com/khach-hang-ca-nhan/uu-dai/${x}`);
+    const set = `<urlset>${urls.map((u) => `<url><loc>${u}</loc></url>`).join("")}</urlset>`;
+    const index = `<sitemapindex><sitemap><loc>https://techcombank.com/vn.sitemap.vi-sitemap.xml</loc></sitemap></sitemapindex>`;
+    const fetcher: Fetcher = async (url) =>
+      url.endsWith("sitemap-index.xml")
+        ? { status: 200, text: index }
+        : url.endsWith("vi-sitemap.xml")
+          ? { status: 200, text: set }
+          : { status: 200, text: shopeeHtml };
+    const caller = vi.fn().mockResolvedValue({ offers: [offer()], notes: null });
+    const state: CrawlState = { pages: {}, lastPromoCount: null };
+    const run = (today: string) =>
+      runCrawl({
+        bank: techcombank,
+        fetcher,
+        caller,
+        state,
+        today,
+        retrievedAt: "2026-03-01T02:00:00.000Z",
+        categories: CATEGORY_INFO,
+        knownMerchantSlugs: new Set(["shopee"]),
+      });
+    const r = await run("2026-03-01");
+    expect(caller).toHaveBeenCalledTimes(1);
+    expect(r.pages.map((p) => p.outcome)).toEqual(["extracted", "duplicate"]);
+    expect(r.bundles.main.deals).toHaveLength(1);
+    expect(renderReport(r)).toContain("Trang trùng nội dung");
+    const again = await run("2026-03-02");
+    expect(caller).toHaveBeenCalledTimes(1);
+    expect(again.pages.map((p) => p.outcome)).toEqual(["unchanged", "unchanged"]);
+  });
+
+  it("gives the model the category names", async () => {
+    const caller = vi.fn().mockResolvedValue({ offers: [], notes: "none" });
+    await extractOffers(caller, promo, {
+      today: "2026-03-01",
+      categorySlugs: CATEGORIES,
+      categories: [{ slug: "mua-sam-truc-tuyen", name: "Mua sắm trực tuyến", aliases: ["shopee"] }],
+    });
+    const user = caller.mock.calls[0][0].messages[1].content as string;
+    expect(user).toContain('"name":"Mua sắm trực tuyến"');
   });
 });

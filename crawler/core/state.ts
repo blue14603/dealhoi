@@ -9,6 +9,7 @@ export type PageOutcome =
   | "extracted" // offers accepted (some may also be rejected)
   | "needs_manual" // all offers failed validation
   | "no_offers" // the model found no card offer
+  | "duplicate" // same content as another promotion page
   | "not_credit_card" // the bank labels it as another product
   | "expired"
   | "unparseable" // no promotion data on the page

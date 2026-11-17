@@ -83,6 +83,9 @@ const LISTING_PAGES = new Set([
 export const CARD_KEY_ALIASES: Record<string, string> = {
   // Card page: /khach-hang-ca-nhan/chi-tieu/the/the-tin-dung/techcombank-visa-eco
   "techcombank-visa-eco-card": "techcombank-visa-eco",
+  // The Galle Watch page lists this key as the credit card "Techcombank Visa Private";
+  // card page: /khach-hang-ca-nhan/chi-tieu/the/the-tin-dung/techcombank-private-visa-infinite
+  "the-tin-dung-techcombank-visa-infinite": "techcombank-private-visa-infinite",
 };
 
 export function cardSlugFromKey(key: string): string {

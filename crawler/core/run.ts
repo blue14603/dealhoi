@@ -1,6 +1,6 @@
 import { isQuotaError, type StructuredCaller } from "@/lib/ai/openai-client";
 import { buildBundles, type Bundles } from "./bundle";
-import { extractOffers, type ExtractionResult, type Offer } from "./extract";
+import { extractOffers, type CategoryInfo, type ExtractionResult, type Offer } from "./extract";
 import { RobotsDisallowedError } from "./http";
 import type { CrawlState, PageOutcome } from "./state";
 import type { BankAdapter, Fetcher, ParsedPromo } from "./types";
@@ -13,7 +13,7 @@ export interface RunOptions {
   state: CrawlState;
   today: string;
   retrievedAt: string;
-  categorySlugs: string[];
+  categories: CategoryInfo[];
   knownMerchantSlugs: Set<string>;
   /** Maximum number of promotion pages to fetch this run. */
   limit?: number;
@@ -28,6 +28,32 @@ export interface PageReport {
   title?: string;
   detail?: string;
   extraction?: ExtractionResult;
+  /** Things a reviewer should double-check for this page. */
+  reviewNotes?: string[];
+}
+
+/**
+ * Flags offers from one page that share a merchant and cards but give
+ * different rewards without a different minimum spend: usually tiers decided
+ * by card number (BIN) that cannot be mapped to card names automatically.
+ */
+export function tierNotes(promo: ParsedPromo, offers: Offer[]): string[] {
+  const notes: string[] = [];
+  const cardsOf = (o: Offer) => new Set(o.card_keys.length ? o.card_keys : promo.creditCards.map((c) => c.key));
+  for (let i = 0; i < offers.length; i++) {
+    for (let j = i + 1; j < offers.length; j++) {
+      const a = offers[i];
+      const b = offers[j];
+      if (a.merchant_key !== b.merchant_key || a.benefit_type !== b.benefit_type) continue;
+      if (a.minimum_spend_vnd !== b.minimum_spend_vnd) continue; // spend tiers are fine
+      const shared = [...cardsOf(a)].filter((k) => cardsOf(b).has(k));
+      if (!shared.length) continue;
+      notes.push(
+        `"${a.title}" và "${b.title}" cùng áp dụng cho ${shared.length} thẻ với mức khác nhau: kiểm tra thẻ nào hưởng mức nào (thường theo 6 số đầu thẻ) và bỏ bớt thẻ ở từng ưu đãi.`,
+      );
+    }
+  }
+  return notes;
 }
 
 export interface RunReport {
@@ -79,6 +105,11 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
   let fetched = 0;
   let consecutiveEmpty = 0;
   let consecutiveLlmErrors = 0;
+  // Identical content published under several URLs is extracted once.
+  const hashIndex = new Map<string, string>();
+  for (const [u, p] of Object.entries(o.state.pages)) {
+    if (p.hash && ["extracted", "needs_manual", "no_offers"].includes(p.outcome) && !hashIndex.has(p.hash)) hashIndex.set(p.hash, u);
+  }
   let llmStopped: string | null = null;
 
   for (const { url } of discovery.promos) {
@@ -136,6 +167,12 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
       pages.push({ url, outcome: "unchanged", title: promo.title });
       continue;
     }
+    const original = hashIndex.get(promo.contentHash);
+    if (original && original !== url) {
+      mark("duplicate", promo.contentHash, promo.expiryDate);
+      pages.push({ url, outcome: "duplicate", title: promo.title, detail: `Trùng nội dung với ${original}` });
+      continue;
+    }
     if (!o.caller || llmStopped) {
       pages.push({ url, outcome: "parsed", title: promo.title });
       continue; // state not updated, so the page is extracted on the next LLM run
@@ -143,7 +180,12 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
 
     try {
       log(`Extracting ${url}`);
-      const extraction = await extractOffers(o.caller, promo, { today: o.today, categorySlugs: o.categorySlugs });
+      const extraction = await extractOffers(o.caller, promo, {
+        today: o.today,
+        categorySlugs: o.categories.map((c) => c.slug),
+        categories: o.categories,
+      });
+      hashIndex.set(promo.contentHash, url);
       const outcome: PageOutcome = extraction.accepted.length
         ? "extracted"
         : extraction.rejected.length
@@ -151,7 +193,8 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
           : "no_offers";
       consecutiveLlmErrors = 0;
       mark(outcome, promo.contentHash, promo.expiryDate);
-      pages.push({ url, outcome, title: promo.title, extraction });
+      const reviewNotes = tierNotes(promo, extraction.accepted);
+      pages.push({ url, outcome, title: promo.title, extraction, ...(reviewNotes.length ? { reviewNotes } : {}) });
       if (extraction.accepted.length) results.push({ promo, offers: extraction.accepted });
     } catch (e) {
       const reason = describeError(e);
@@ -205,7 +248,7 @@ export function renderReport(r: RunReport): string {
   lines.push(
     `- Đã kiểm tra: ${r.pages.length} — trích xuất ${count("extracted")}, cần nhập tay ${count("needs_manual")}, không có ưu đãi thẻ ${count("no_offers")}, ` +
       `không phải thẻ tín dụng ${count("not_credit_card")}, hết hạn ${count("expired")}, không đổi ${count("unchanged")}, ` +
-      `chỉ phân tích ${count("parsed")}, không đọc được ${count("unparseable")}, lỗi ${count("error")}`,
+      `trùng lặp ${count("duplicate")}, chỉ phân tích ${count("parsed")}, không đọc được ${count("unparseable")}, lỗi ${count("error")}`,
   );
   lines.push(`- Ưu đãi nháp trong bundle: ${r.bundles.main.deals.length} (nguồn: ${r.bundles.main.sources.length})`);
   lines.push(`- Thẻ/cửa hàng tạm (stubs): ${r.bundles.stubs.cards.length} thẻ, ${r.bundles.stubs.merchants.length} cửa hàng`, "");
@@ -216,6 +259,19 @@ export function renderReport(r: RunReport): string {
     for (const c of r.unknownCardSlugs) lines.push(`- \`${c.key}\` → \`${c.slug}\` (${c.title})`);
     lines.push("");
   }
+  const review = r.pages.filter((p) => p.reviewNotes?.length);
+  if (review.length) {
+    lines.push("## Cần chú ý khi duyệt", "");
+    for (const p of review) lines.push(`### ${p.title ?? p.url}`, p.url, ...p.reviewNotes!.map((n) => `- ${n}`), "");
+  }
+  const skipped = r.pages.filter((p) => p.extraction?.skipped.length);
+  if (skipped.length) {
+    lines.push("## Ưu đãi bị bỏ qua", "");
+    for (const p of skipped) for (const s of p.extraction!.skipped) lines.push(`- ${s.offer.title} — ${s.reason} (${p.url})`);
+    lines.push("");
+  }
+  const duplicates = r.pages.filter((p) => p.outcome === "duplicate");
+  if (duplicates.length) lines.push("## Trang trùng nội dung", ...duplicates.map((p) => `- ${p.url}: ${p.detail}`), "");
   const manual = r.pages.filter((p) => p.extraction?.rejected.length);
   if (manual.length) {
     lines.push("## Ưu đãi cần nhập tay (không qua kiểm tra)", "");

@@ -31,6 +31,26 @@ export function sortOffers(offers: Offer[]): Offer[] {
   return [...offers].sort((a, b) => key(a).localeCompare(key(b)));
 }
 
+/**
+ * Deterministic fixes for fields the model often fills inconsistently:
+ * points are not VND, and a cap period without a cap amount is meaningless
+ * (deal-rules refuses "cap_period cần maximum_benefit_vnd").
+ */
+export function normalizeOffer(offer: Offer): Offer {
+  const o = { ...offer };
+  if (o.benefit_type === "points") {
+    o.fixed_amount_vnd = null;
+    o.maximum_benefit_vnd = null;
+  }
+  if (o.maximum_benefit_vnd === null) {
+    o.cap_period = null;
+    if (o.cap_is_unlimited === false) o.cap_is_unlimited = null;
+  }
+  if (o.cap_is_unlimited === true) o.maximum_benefit_vnd = null;
+  if (o.minimum_spend_vnd === null) o.minimum_spend_period = null;
+  return o;
+}
+
 function joinText(...parts: (string | null | undefined)[]): string | null {
   const s = parts.filter((p) => p && p.trim()).join("\n");
   return s ? s.slice(0, 5000) : null;
@@ -67,7 +87,7 @@ export function buildBundles(args: {
       ? `Điều khoản đầy đủ: ${promo.documents.map((d) => `${d.title} (${d.url})`).join("; ")}`
       : null;
 
-    sortOffers(offers).forEach((offer, index) => {
+    sortOffers(offers.map(normalizeOffer)).forEach((offer, index) => {
       const cards = offer.card_keys.length
         ? promo.creditCards.filter((c) => offer.card_keys.includes(c.key))
         : promo.creditCards;

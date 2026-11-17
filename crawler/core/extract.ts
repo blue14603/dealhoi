@@ -13,6 +13,12 @@ export const APPLIES_TO = ["credit_only", "debit_only", "credit_and_debit"] as c
 
 const nullable = (schema: Record<string, unknown>) => ({ anyOf: [schema, { type: "null" }] });
 
+export interface CategoryInfo {
+  slug: string;
+  name: string;
+  aliases?: string[];
+}
+
 export function offerJsonSchema(categorySlugs: string[]) {
   const offer = {
     type: "object",
@@ -21,6 +27,7 @@ export function offerJsonSchema(categorySlugs: string[]) {
       title: { type: "string" },
       description: { type: "string" },
       applies_to: { type: "string", enum: [...APPLIES_TO] },
+      is_targeted: { type: "boolean" },
       card_keys: { type: "array", items: { type: "string" } },
       benefit_type: { type: "string", enum: [...BENEFIT_TYPES] },
       offer_type: { type: "string", enum: [...OFFER_TYPES] },
@@ -44,7 +51,7 @@ export function offerJsonSchema(categorySlugs: string[]) {
       evidence: { type: "string" },
     },
     required: [
-      "title", "description", "applies_to", "card_keys", "benefit_type", "offer_type", "percentage",
+      "title", "description", "applies_to", "is_targeted", "card_keys", "benefit_type", "offer_type", "percentage",
       "fixed_amount_vnd", "maximum_benefit_vnd", "cap_period", "cap_is_unlimited", "minimum_spend_vnd",
       "minimum_spend_period", "installment_months", "installment_fee_vnd", "payment_channel", "merchant_scope",
       "merchant_key", "category_slug", "start_date", "end_date", "eligibility_terms", "terms_and_conditions", "evidence",
@@ -63,6 +70,7 @@ export const OfferSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   applies_to: z.enum(APPLIES_TO),
+  is_targeted: z.boolean(),
   card_keys: z.array(z.string()),
   benefit_type: z.enum(BENEFIT_TYPES),
   offer_type: z.enum(OFFER_TYPES),
@@ -94,23 +102,30 @@ Rules:
 - Use ONLY the page text in <page>. Never use outside knowledge. Never guess.
 - A page can contain several distinct offers (e.g. installment vs. pay-in-full, credit vs. debit card, different spend tiers with different rewards). Return one offer per distinct reward rule. Spend tiers of the same rule (e.g. 500.000 for orders from 15 triệu, 700.000 from 30 triệu) are separate offers.
 - applies_to: whether the offer is for credit cards (thẻ tín dụng), debit cards (thẻ thanh toán / thẻ ghi nợ), or both.
+- is_targeted: true when only customers chosen or contacted by the bank can get the offer (e.g. "khách hàng nhận được thông báo", "khách hàng được mời", "khách hàng được lựa chọn"); false when any eligible cardholder can.
 - card_keys: the subset of <cards> keys the offer applies to. Empty array if it applies to all listed cards or the page does not say.
+- If the page assigns rewards by card number prefix (BIN, "6 số đầu") rather than by card name, keep card_keys empty and write "Chỉ áp dụng cho thẻ có 6 số đầu: <the BINs for this offer>" in eligibility_terms.
 - Money is integer VND: "500K" = 500000, "1,5 triệu" = 1500000. Percentages are numbers: "10%" = 10.
+- *_vnd fields are Vietnamese đồng only. Points (điểm, U-Point, dặm) are NOT money: for points offers, fixed_amount_vnd and maximum_benefit_vnd must be null; state the number of points in title and description.
+- maximum_benefit_vnd is the most a customer can receive. Set cap_period only together with maximum_benefit_vnd.
 - Use null for anything the page does not state. minimum_spend_vnd = 0 only if the page says there is no minimum. cap_is_unlimited = true only if the page says there is no cap ("không giới hạn").
 - benefit_type: cashback (hoàn tiền), discount (giảm giá / giảm ngay / tặng X đồng off the bill), points (điểm, U-Point, dặm), installment (trả góp 0%), voucher (tặng voucher / mã), travel_perk (phòng chờ, bảo hiểm du lịch, đưa đón), other.
 - offer_type: temporary for campaigns with dates, welcome for offers when opening a new card, ongoing for permanent card benefits.
 - cap_period / minimum_spend_period: "transaction" for per-order limits ("cho đơn từ", "tối đa ... / giao dịch"), month/quarter/year/campaign for cumulative ones.
 - merchant_scope: specific_merchant when tied to named merchant(s) in <merchants> (set merchant_key to its key), category_wide for a spending category, general for any spending.
-- category_slug: the best match among the allowed slugs; "chi-tieu-chung" when nothing fits.
+- category_slug: the best match in <categories> for what the customer buys. "mua-sam-truc-tuyen" only for online marketplaces and online shops (Shopee, Lazada, Tiki…), never for physical stores. Use "chi-tieu-chung" when nothing fits.
 - start_date / end_date: YYYY-MM-DD, only if written on the page.
 - If the offer only applies on certain days (e.g. "ngày 15, 25 hàng tháng", "21/1, 22/1"), or only to some customer segments (Priority, Private), say so in terms_and_conditions / eligibility_terms, in Vietnamese.
 - title and description: short, factual, in Vietnamese, using the page's own figures.
 - evidence: copy, word for word, the sentence(s) from the page that state this offer's reward and conditions.
 - If the page has no card offer at all, return an empty offers array and explain in notes.`;
 
-export function buildUserMessage(promo: ParsedPromo, today: string): string {
+export function buildUserMessage(promo: ParsedPromo, today: string, categories: CategoryInfo[] = []): string {
   return [
     `<today>${today}</today>`,
+    ...(categories.length
+      ? [`<categories>${JSON.stringify(categories.map((c) => ({ slug: c.slug, name: c.name, examples: c.aliases ?? [] })))}</categories>`]
+      : []),
     `<cards>${JSON.stringify(promo.creditCards.map((c) => ({ key: c.key, name: c.title })))}</cards>`,
     `<merchants>${JSON.stringify(promo.merchants)}</merchants>`,
     `<bank_categories>${JSON.stringify(promo.categoryHints)}</bank_categories>`,
@@ -207,12 +222,12 @@ export interface ExtractionResult {
 export async function extractOffers(
   caller: StructuredCaller,
   promo: ParsedPromo,
-  ctx: { today: string; categorySlugs: string[] },
+  ctx: { today: string; categorySlugs: string[]; categories?: CategoryInfo[] },
 ): Promise<ExtractionResult> {
   const schema = offerJsonSchema(ctx.categorySlugs);
   const messages: ChatMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
-    { role: "user", content: buildUserMessage(promo, ctx.today) },
+    { role: "user", content: buildUserMessage(promo, ctx.today, ctx.categories) },
   ];
 
   let result: ExtractionResult = { accepted: [], rejected: [], skipped: [], notes: null };
@@ -236,6 +251,10 @@ export async function extractOffers(
         }
         if (o.data.applies_to === "debit_only") {
           result.skipped.push({ offer: o.data, reason: "chỉ áp dụng thẻ thanh toán (ghi nợ)" });
+          continue;
+        }
+        if (o.data.is_targeted) {
+          result.skipped.push({ offer: o.data, reason: "chỉ dành cho khách hàng được ngân hàng mời/thông báo" });
           continue;
         }
         const problems = validateOffer(o.data, { promo, today: ctx.today });
