@@ -42,7 +42,7 @@ export function offerJsonSchema(categorySlugs: string[]) {
       installment_fee_vnd: nullable({ type: "integer" }),
       payment_channel: { type: "string", enum: [...PAYMENT_CHANNELS] },
       merchant_scope: { type: "string", enum: [...MERCHANT_SCOPES] },
-      merchant_key: nullable({ type: "string" }),
+      merchant_names: { type: "array", items: { type: "string" } },
       category_slug: { type: "string", enum: categorySlugs },
       start_date: nullable({ type: "string" }),
       end_date: nullable({ type: "string" }),
@@ -54,7 +54,7 @@ export function offerJsonSchema(categorySlugs: string[]) {
       "title", "description", "applies_to", "is_targeted", "card_keys", "benefit_type", "offer_type", "percentage",
       "fixed_amount_vnd", "maximum_benefit_vnd", "cap_period", "cap_is_unlimited", "minimum_spend_vnd",
       "minimum_spend_period", "installment_months", "installment_fee_vnd", "payment_channel", "merchant_scope",
-      "merchant_key", "category_slug", "start_date", "end_date", "eligibility_terms", "terms_and_conditions", "evidence",
+      "merchant_names", "category_slug", "start_date", "end_date", "eligibility_terms", "terms_and_conditions", "evidence",
     ],
   };
   return {
@@ -85,7 +85,7 @@ export const OfferSchema = z.object({
   installment_fee_vnd: z.number().int().min(0).nullable(),
   payment_channel: z.enum(PAYMENT_CHANNELS),
   merchant_scope: z.enum(MERCHANT_SCOPES),
-  merchant_key: z.string().nullable(),
+  merchant_names: z.array(z.string().min(1)),
   category_slug: z.string(),
   start_date: isoDate.nullable(),
   end_date: isoDate.nullable(),
@@ -102,17 +102,18 @@ Rules:
 - Use ONLY the page text in <page>. Never use outside knowledge. Never guess.
 - A page can contain several distinct offers (e.g. installment vs. pay-in-full, credit vs. debit card, different spend tiers with different rewards). Return one offer per distinct reward rule. Spend tiers of the same rule (e.g. 500.000 for orders from 15 triệu, 700.000 from 30 triệu) are separate offers.
 - applies_to: whether the offer is for credit cards (thẻ tín dụng), debit cards (thẻ thanh toán / thẻ ghi nợ), or both.
-- is_targeted: true when only customers chosen or contacted by the bank can get the offer (e.g. "khách hàng nhận được thông báo", "khách hàng được mời", "khách hàng được lựa chọn"); false when any eligible cardholder can.
-- card_keys: the subset of <cards> keys the offer applies to. Empty array if it applies to all listed cards or the page does not say.
+- is_targeted: true ONLY when the bank picks individual customers (e.g. "khách hàng nhận được thông báo", "khách hàng được mời", "khách hàng được lựa chọn", "nhận được tin nhắn"). A customer segment or tier anyone in it can use (Priority, Private, Inspire, hội viên, chủ hộ kinh doanh, khách hàng mới) is NOT targeted: set false and describe the segment in eligibility_terms.
+- card_keys: the subset of <cards> keys the offer applies to. Empty array if it applies to all listed cards or the page does not say. When the page gives different rewards to different named cards (e.g. 1 triệu for Visa Infinite, 500 nghìn for Visa Signature), set card_keys on each offer accordingly.
 - If the page assigns rewards by card number prefix (BIN, "6 số đầu") rather than by card name, keep card_keys empty and write "Chỉ áp dụng cho thẻ có 6 số đầu: <the BINs for this offer>" in eligibility_terms.
 - Money is integer VND: "500K" = 500000, "1,5 triệu" = 1500000. Percentages are numbers: "10%" = 10.
-- *_vnd fields are Vietnamese đồng only. Points (điểm, U-Point, dặm) are NOT money: for points offers, fixed_amount_vnd and maximum_benefit_vnd must be null; state the number of points in title and description.
+- *_vnd fields are Vietnamese đồng only. Never convert foreign currencies (USD, S$, ¥, ₩, NT$…): leave the *_vnd fields null and keep the original amount (e.g. "100 USD") in title, description and terms_and_conditions. Points (điểm, U-Point, dặm) are NOT money: for points offers, fixed_amount_vnd and maximum_benefit_vnd must be null; state the number of points in title and description.
 - maximum_benefit_vnd is the most a customer can receive. Set cap_period only together with maximum_benefit_vnd.
 - Use null for anything the page does not state. minimum_spend_vnd = 0 only if the page says there is no minimum. cap_is_unlimited = true only if the page says there is no cap ("không giới hạn").
 - benefit_type: cashback (hoàn tiền), discount (giảm giá / giảm ngay / tặng X đồng off the bill), points (điểm, U-Point, dặm), installment (trả góp 0%), voucher (tặng voucher / mã), travel_perk (phòng chờ, bảo hiểm du lịch, đưa đón), other.
 - offer_type: temporary for campaigns with dates, welcome for offers when opening a new card, ongoing for permanent card benefits.
 - cap_period / minimum_spend_period: "transaction" for per-order limits ("cho đơn từ", "tối đa ... / giao dịch"), month/quarter/year/campaign for cumulative ones.
-- merchant_scope: specific_merchant when tied to named merchant(s) in <merchants> (set merchant_key to its key), category_wide for a spending category, general for any spending.
+- merchant_scope: specific_merchant when tied to named merchants or brands, category_wide for a spending category, general for any spending.
+- merchant_names: for specific_merchant, the merchant or brand names exactly as written on the page (e.g. ["Agoda"], ["Shopee", "FPT Shop", "CellphoneS"]); use the names in <merchants> when they match. Empty for category_wide and general.
 - category_slug: the best match in <categories> for what the customer buys. "mua-sam-truc-tuyen" only for online marketplaces and online shops (Shopee, Lazada, Tiki…), never for physical stores. Use "chi-tieu-chung" when nothing fits.
 - start_date / end_date: YYYY-MM-DD, only if written on the page.
 - If the offer only applies on certain days (e.g. "ngày 15, 25 hàng tháng", "21/1, 22/1"), or only to some customer segments (Priority, Private), say so in terms_and_conditions / eligibility_terms, in Vietnamese.
@@ -212,10 +213,10 @@ export function validateOffer(offer: Offer, ctx: ValidationContext): string[] {
   const unknownCards = offer.card_keys.filter((k) => !known.has(k));
   if (unknownCards.length) problems.push(`card_keys không có trong danh sách thẻ: ${unknownCards.join(", ")}`);
 
-  if (offer.merchant_key !== null && !promo.merchants.some((m) => m.key === offer.merchant_key)) {
-    problems.push(`merchant_key "${offer.merchant_key}" không có trong danh sách cửa hàng`);
-  }
-  if (offer.merchant_scope === "specific_merchant" && offer.merchant_key === null) {
+  const listed = (n: string) => promo.merchants.some((m) => m.title.toLowerCase() === n.trim().toLowerCase());
+  const unknownMerchants = offer.merchant_names.filter((n) => !listed(n) && !quoteFound(promo.text, n));
+  if (unknownMerchants.length) problems.push(`cửa hàng không có trong trang: ${unknownMerchants.join(", ")}`);
+  if (offer.merchant_scope === "specific_merchant" && offer.merchant_names.length === 0) {
     problems.push("ưu đãi riêng tại cửa hàng nhưng không xác định được cửa hàng");
   }
 
@@ -225,10 +226,6 @@ export function validateOffer(offer: Offer, ctx: ValidationContext): string[] {
     problems.push(`end_date ${offer.end_date} không có trong trang`);
   }
   if (offer.start_date && offer.end_date && offer.start_date > offer.end_date) problems.push("start_date sau end_date");
-
-  if (offer.benefit_type === "cashback" || offer.benefit_type === "discount") {
-    if (offer.percentage === null && offer.fixed_amount_vnd === null) problems.push("ưu đãi tiền nhưng không có tỷ lệ hay số tiền");
-  }
   return problems;
 }
 

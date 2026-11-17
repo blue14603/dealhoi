@@ -10,6 +10,7 @@
 import { createHash } from "node:crypto";
 import { DealImportSchema, type DealImport, type SourceImport } from "@/lib/admin/import-schema";
 import type { Offer } from "./extract";
+import { MAX_MERCHANTS_PER_OFFER, resolveMerchant, type KnownMerchant } from "./merchants";
 import type { BankAdapter, ParsedPromo } from "./types";
 
 export interface Bundles {
@@ -27,7 +28,7 @@ export function importKey(bankSlug: string, url: string, index: number): string 
 /** Stable order so the same page yields the same import keys on re-runs. */
 export function sortOffers(offers: Offer[]): Offer[] {
   const key = (o: Offer) =>
-    [o.benefit_type, o.merchant_key ?? "", String(o.minimum_spend_vnd ?? -1).padStart(13, "0"), String(o.fixed_amount_vnd ?? -1).padStart(13, "0"), String(o.percentage ?? -1).padStart(6, "0"), o.title].join("|");
+    [o.benefit_type, o.merchant_names.join(","), String(o.minimum_spend_vnd ?? -1).padStart(13, "0"), String(o.fixed_amount_vnd ?? -1).padStart(13, "0"), String(o.percentage ?? -1).padStart(6, "0"), o.title].join("|");
   return [...offers].sort((a, b) => key(a).localeCompare(key(b)));
 }
 
@@ -62,7 +63,7 @@ export function buildBundles(args: {
   bank: BankAdapter;
   results: { promo: ParsedPromo; offers: Offer[] }[];
   retrievedAt: string;
-  knownMerchantSlugs: Set<string>;
+  knownMerchants: KnownMerchant[];
   cardPageBySlug: Map<string, string>;
 }): Bundles {
   const { bank } = args;
@@ -109,46 +110,54 @@ export function buildBundles(args: {
         }
       }
 
-      let merchantSlug: string | null = null;
-      if (offer.merchant_key) {
-        merchantSlug = bank.merchantSlug(offer.merchant_key);
-        const m = promo.merchants.find((x) => x.key === offer.merchant_key);
-        if (!args.knownMerchantSlugs.has(merchantSlug) && !merchantStubs.has(merchantSlug)) {
-          merchantStubs.set(merchantSlug, { slug: merchantSlug, name: m?.title ?? merchantSlug, category_slug: offer.category_slug, aliases: [] });
-        }
-      }
+      // One deal per merchant, so each shows up when searching that merchant.
+      const names = offer.merchant_scope === "specific_merchant" ? offer.merchant_names : [];
+      const split = names.length > 0 && names.length <= MAX_MERCHANTS_PER_OFFER;
+      const merchants = split
+        ? names.map((n) => resolveMerchant(n, args.knownMerchants, promo.merchants, (k) => bank.merchantSlug(k)))
+        : [null];
+      const tooMany = names.length > MAX_MERCHANTS_PER_OFFER ? `Áp dụng tại: ${names.join(", ")}` : null;
+      const seen = new Set<string>();
 
-      const key = importKey(bank.slug, promo.url, index);
-      const deal = DealImportSchema.safeParse({
-        import_key: key,
-        title: offer.title,
-        description: offer.description,
-        merchant_slug: offer.merchant_scope === "specific_merchant" ? merchantSlug : null,
-        category_slug: offer.category_slug,
-        benefit_type: offer.benefit_type,
-        offer_type: offer.offer_type,
-        percentage: offer.percentage,
-        fixed_amount_vnd: offer.fixed_amount_vnd,
-        maximum_benefit_vnd: offer.maximum_benefit_vnd,
-        cap_period: offer.cap_period,
-        cap_is_unlimited: offer.cap_is_unlimited,
-        minimum_spend_vnd: offer.minimum_spend_vnd,
-        minimum_spend_period: offer.minimum_spend_period,
-        installment_months: offer.installment_months,
-        installment_fee_vnd: offer.installment_fee_vnd,
-        eligibility_terms: joinText(offer.eligibility_terms, restricted.length ? `Dành cho: ${restricted.join(", ")}` : null),
-        terms_and_conditions: joinText(offer.terms_and_conditions, docs),
-        payment_channel: offer.payment_channel,
-        merchant_scope: offer.merchant_scope,
-        start_date: offer.start_date,
-        end_date: offer.end_date ?? promo.expiryDate,
-        source_url: promo.url,
-        verification_status: "draft",
-        publication_status: "draft",
-        cards: cards.map((c) => ({ card_slug: c.slug, additional_eligibility_terms: null })),
-      });
-      if (deal.success) bundles.main.deals.push(deal.data);
-      else bundles.invalid.push({ importKey: key, problems: deal.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) });
+      for (const m of merchants) {
+        if (m && seen.has(m.slug)) continue;
+        if (m) seen.add(m.slug);
+        if (m && !m.known && !merchantStubs.has(m.slug)) {
+          merchantStubs.set(m.slug, { slug: m.slug, name: m.name, category_slug: offer.category_slug, aliases: [] });
+        }
+        const base = importKey(bank.slug, promo.url, index);
+        const key = m && merchants.length > 1 ? `${base}-${m.slug.slice(0, 30).replace(/-+$/, "")}` : base;
+        const deal = DealImportSchema.safeParse({
+          import_key: key,
+          title: offer.title,
+          description: offer.description,
+          merchant_slug: m?.slug ?? null,
+          category_slug: offer.category_slug,
+          benefit_type: offer.benefit_type,
+          offer_type: offer.offer_type,
+          percentage: offer.percentage,
+          fixed_amount_vnd: offer.fixed_amount_vnd,
+          maximum_benefit_vnd: offer.maximum_benefit_vnd,
+          cap_period: offer.cap_period,
+          cap_is_unlimited: offer.cap_is_unlimited,
+          minimum_spend_vnd: offer.minimum_spend_vnd,
+          minimum_spend_period: offer.minimum_spend_period,
+          installment_months: offer.installment_months,
+          installment_fee_vnd: offer.installment_fee_vnd,
+          eligibility_terms: joinText(offer.eligibility_terms, restricted.length ? `Dành cho: ${restricted.join(", ")}` : null),
+          terms_and_conditions: joinText(offer.terms_and_conditions, tooMany, docs),
+          payment_channel: offer.payment_channel,
+          merchant_scope: m ? "specific_merchant" : offer.merchant_scope === "specific_merchant" ? "category_wide" : offer.merchant_scope,
+          start_date: offer.start_date,
+          end_date: offer.end_date ?? promo.expiryDate,
+          source_url: promo.url,
+          verification_status: "draft",
+          publication_status: "draft",
+          cards: cards.map((c) => ({ card_slug: c.slug, additional_eligibility_terms: null })),
+        });
+        if (deal.success) bundles.main.deals.push(deal.data);
+        else bundles.invalid.push({ importKey: key, problems: deal.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) });
+      }
     });
   }
 

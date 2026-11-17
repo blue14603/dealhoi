@@ -7,7 +7,9 @@ import { decodeEntities, htmlToText } from "../../crawler/core/html";
 import { AiUnavailableError, createStructuredCaller } from "@/lib/ai/openai-client";
 import { createPoliteFetcher, RobotsDisallowedError } from "../../crawler/core/http";
 import { parseRobots } from "../../crawler/core/robots";
-import { renderReport, runCrawl, tierNotes } from "../../crawler/core/run";
+import { amountNotes, renderReport, runCrawl, tierNotes } from "../../crawler/core/run";
+import { buildBundles } from "../../crawler/core/bundle";
+import { resolveMerchant } from "../../crawler/core/merchants";
 import { parseSitemap } from "../../crawler/core/sitemap";
 import type { CrawlState } from "../../crawler/core/state";
 import type { Fetcher } from "../../crawler/core/types";
@@ -51,7 +53,7 @@ function offer(over: Partial<Offer> = {}): Offer {
     installment_fee_vnd: null,
     payment_channel: "online",
     merchant_scope: "specific_merchant",
-    merchant_key: "shopee",
+    merchant_names: ["Shopee"],
     category_slug: "mua-sam-truc-tuyen",
     start_date: "2026-01-21",
     end_date: "2026-04-30",
@@ -198,14 +200,14 @@ describe("offer validation", () => {
   });
   it("rejects invented quotes, cards, merchants and dates", () => {
     const problems = validateOffer(
-      offer({ evidence: "Hoàn 20% không giới hạn", card_keys: ["the-tin-dung-khong-ton-tai"], merchant_key: "lazada", start_date: "2026-02-01" }),
+      offer({ evidence: "Hoàn 20% không giới hạn", card_keys: ["the-tin-dung-khong-ton-tai"], merchant_names: ["Lazada"], start_date: "2026-02-01" }),
       ctx,
     );
     expect(problems).toEqual(
       expect.arrayContaining([
         expect.stringContaining("evidence không trích nguyên văn từ trang"),
         "card_keys không có trong danh sách thẻ: the-tin-dung-khong-ton-tai",
-        'merchant_key "lazada" không có trong danh sách cửa hàng',
+        "cửa hàng không có trong trang: Lazada",
         "start_date 2026-02-01 không có trong trang",
       ]),
     );
@@ -259,7 +261,7 @@ describe("full run", () => {
     fetcher,
     retrievedAt: "2026-03-01T02:00:00.000Z",
     categories: CATEGORY_INFO,
-    knownMerchantSlugs: new Set(["shopee"]),
+    knownMerchants: [{ slug: "shopee", name: "Shopee" }],
   };
 
   it("extracts, builds draft bundles and skips unchanged pages next time", async () => {
@@ -432,7 +434,11 @@ describe("fixes from the first live run", () => {
   it("flags reward tiers that cover the same cards", () => {
     const a = offer({ title: "Giảm 12%", benefit_type: "discount", percentage: null, fixed_amount_vnd: 500000, minimum_spend_vnd: null });
     const b = offer({ title: "Giảm 10%", benefit_type: "discount", percentage: null, fixed_amount_vnd: 500000, minimum_spend_vnd: null });
-    expect(tierNotes(promo, [a, b])[0]).toContain("cùng áp dụng cho 6 thẻ");
+    expect(tierNotes(promo, [a, b])[0]).toContain("cùng cửa hàng và cùng thẻ nhưng mức khác nhau");
+    // Offers at different merchants are not flagged.
+    expect(tierNotes(promo, [a, { ...b, merchant_names: ["Apple store Flagship"] }])).toEqual([]);
+    // Several pairs on one page give a single note.
+    expect(tierNotes(promo, [a, b, { ...b, title: "Giảm 8%" }])).toHaveLength(1);
     // Spend tiers (different minimum spend) are expected and not flagged.
     expect(tierNotes(promo, [offer(), offer({ minimum_spend_vnd: 30000000 })])).toEqual([]);
     // Disjoint card lists are not flagged.
@@ -462,7 +468,7 @@ describe("fixes from the first live run", () => {
         today,
         retrievedAt: "2026-03-01T02:00:00.000Z",
         categories: CATEGORY_INFO,
-        knownMerchantSlugs: new Set(["shopee"]),
+        knownMerchants: [{ slug: "shopee", name: "Shopee" }],
       });
     const r = await run("2026-03-01");
     expect(caller).toHaveBeenCalledTimes(1);
@@ -508,5 +514,60 @@ Nội dung ưu đãi: Giảm 15% không giới hạn trên giá công bố tại
   it("moves in-store offers out of online shopping", () => {
     expect(normalizeOffer(offer({ payment_channel: "offline" })).category_slug).toBe("chi-tieu-chung");
     expect(normalizeOffer(offer({ payment_channel: "online" })).category_slug).toBe("mua-sam-truc-tuyen");
+  });
+});
+
+describe("merchants from the page text (full run feedback)", () => {
+  const promo = parsePromotionPage(SHOPEE_URL, shopeeHtml)!;
+  const known = [
+    { slug: "shopee", name: "Shopee" },
+    { slug: "cellphones", name: "CellphoneS" },
+    { slug: "the-gioi-di-dong", name: "Thế Giới Di Động", aliases: ["TGDĐ"] },
+  ];
+  const build = (offers: Offer[]) =>
+    buildBundles({ bank: techcombank, results: [{ promo, offers }], retrievedAt: "2026-03-01T00:00:00Z", knownMerchants: known, cardPageBySlug: new Map() });
+
+  it("matches merchant names to known merchants by name, alias or slug", () => {
+    const r = (n: string) => resolveMerchant(n, known, [], (k) => k);
+    expect(r("Thế giới di động")).toMatchObject({ slug: "the-gioi-di-dong", known: true });
+    expect(r("TGDĐ")).toMatchObject({ slug: "the-gioi-di-dong", known: true });
+    expect(r("Cellphones")).toMatchObject({ slug: "cellphones", known: true });
+    expect(r("FPT Shop")).toEqual({ slug: "fpt-shop", name: "FPT Shop", known: false });
+    expect(r("Điện Máy Xanh")).toMatchObject({ slug: "dien-may-xanh", known: false });
+  });
+
+  it("accepts merchant names written on the page and rejects others", () => {
+    expect(validateOffer(offer({ merchant_names: ["Apple store Flagship"] }), { promo, today: "2026-03-01" })).toEqual([]);
+    expect(validateOffer(offer({ merchant_names: ["Agoda"] }), { promo, today: "2026-03-01" })).toContain("cửa hàng không có trong trang: Agoda");
+    expect(validateOffer(offer({ merchant_names: [] }), { promo, today: "2026-03-01" })).toContain(
+      "ưu đãi riêng tại cửa hàng nhưng không xác định được cửa hàng",
+    );
+  });
+
+  it("creates one deal per merchant with stable keys and stubs only new merchants", () => {
+    const b = build([offer({ merchant_names: ["Shopee", "FPT Shop", "CellphoneS", "Shopee"] })]);
+    expect(b.main.deals.map((d) => d.merchant_slug)).toEqual(["shopee", "fpt-shop", "cellphones"]);
+    expect(b.main.deals.map((d) => d.import_key)).toEqual([
+      `${importKey("techcombank", SHOPEE_URL, 0)}-shopee`,
+      `${importKey("techcombank", SHOPEE_URL, 0)}-fpt-shop`,
+      `${importKey("techcombank", SHOPEE_URL, 0)}-cellphones`,
+    ]);
+    expect(b.stubs.merchants).toEqual([{ slug: "fpt-shop", name: "FPT Shop", category_slug: "mua-sam-truc-tuyen", aliases: [] }]);
+    // A single merchant keeps the plain key.
+    expect(build([offer()]).main.deals[0].import_key).toBe(importKey("techcombank", SHOPEE_URL, 0));
+  });
+
+  it("keeps very long merchant lists as text on one category-wide deal", () => {
+    const names = Array.from({ length: 9 }, (_, i) => `Cửa hàng ${i + 1}`);
+    const [deal] = build([offer({ merchant_names: names })]).main.deals;
+    expect(deal).toMatchObject({ merchant_slug: null, merchant_scope: "category_wide" });
+    expect(deal.terms_and_conditions).toContain("Áp dụng tại: Cửa hàng 1");
+  });
+
+  it("flags money offers without a VND amount instead of rejecting them", () => {
+    const usd = offer({ title: "Giảm 100 USD vé Singapore Airlines", fixed_amount_vnd: null, minimum_spend_vnd: null, merchant_names: ["Shopee"] });
+    expect(validateOffer(usd, { promo, today: "2026-03-01" })).toEqual([]);
+    expect(amountNotes([usd])[0]).toContain("không có số tiền VND");
+    expect(amountNotes([offer()])).toEqual([]);
   });
 });

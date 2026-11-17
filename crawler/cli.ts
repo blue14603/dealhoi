@@ -67,7 +67,7 @@ async function main() {
 
   const reference = JSON.parse(readFileSync("data/reference/reference.json", "utf8")) as {
     categories: { slug: string; name: string; aliases?: string[] }[];
-    merchants: { slug: string }[];
+    merchants: { slug: string; name: string; aliases?: string[] }[];
   };
   const statePath = join(".crawl", "state", `${bank.slug}.json`);
   const state = loadState(statePath);
@@ -82,7 +82,7 @@ async function main() {
     today,
     retrievedAt: new Date().toISOString(),
     categories: reference.categories.map((c) => ({ slug: c.slug, name: c.name, aliases: c.aliases })),
-    knownMerchantSlugs: new Set(reference.merchants.map((m) => m.slug)),
+    knownMerchants: reference.merchants.map((m) => ({ slug: m.slug, name: m.name, aliases: m.aliases })),
     limit,
     force: args.includes("--force"),
     log: (l) => console.error(l),

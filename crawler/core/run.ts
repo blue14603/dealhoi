@@ -2,6 +2,7 @@ import { isQuotaError, type StructuredCaller } from "@/lib/ai/openai-client";
 import { buildBundles, type Bundles } from "./bundle";
 import { extractOffers, type CategoryInfo, type ExtractionResult, type Offer } from "./extract";
 import { RobotsDisallowedError } from "./http";
+import type { KnownMerchant } from "./merchants";
 import type { CrawlState, PageOutcome } from "./state";
 import type { BankAdapter, Fetcher, ParsedPromo } from "./types";
 
@@ -14,7 +15,7 @@ export interface RunOptions {
   today: string;
   retrievedAt: string;
   categories: CategoryInfo[];
-  knownMerchantSlugs: Set<string>;
+  knownMerchants: KnownMerchant[];
   /** Maximum number of promotion pages to fetch this run. */
   limit?: number;
   /** Re-extract pages even when unchanged, and re-check expired ones. */
@@ -33,27 +34,36 @@ export interface PageReport {
 }
 
 /**
- * Flags offers from one page that share a merchant and cards but give
- * different rewards without a different minimum spend: usually tiers decided
- * by card number (BIN) that cannot be mapped to card names automatically.
+ * Flags a page whose offers at the same merchant(s) give different rewards to
+ * the same cards without a different minimum spend: usually levels decided by
+ * card number (BIN) or by card name, which the reviewer must split by card.
+ * At most one note per page.
  */
 export function tierNotes(promo: ParsedPromo, offers: Offer[]): string[] {
-  const notes: string[] = [];
   const cardsOf = (o: Offer) => new Set(o.card_keys.length ? o.card_keys : promo.creditCards.map((c) => c.key));
+  const merchantsOf = (o: Offer) => o.merchant_names.map((n) => n.trim().toLowerCase()).sort().join("|");
+  const involved = new Set<string>();
   for (let i = 0; i < offers.length; i++) {
     for (let j = i + 1; j < offers.length; j++) {
       const a = offers[i];
       const b = offers[j];
-      if (a.merchant_key !== b.merchant_key || a.benefit_type !== b.benefit_type) continue;
-      if (a.minimum_spend_vnd !== b.minimum_spend_vnd) continue; // spend tiers are fine
-      const shared = [...cardsOf(a)].filter((k) => cardsOf(b).has(k));
-      if (!shared.length) continue;
-      notes.push(
-        `"${a.title}" và "${b.title}" cùng áp dụng cho ${shared.length} thẻ với mức khác nhau: kiểm tra thẻ nào hưởng mức nào (thường theo 6 số đầu thẻ) và bỏ bớt thẻ ở từng ưu đãi.`,
-      );
+      if (!merchantsOf(a) || merchantsOf(a) !== merchantsOf(b)) continue;
+      if (a.benefit_type !== b.benefit_type || a.minimum_spend_vnd !== b.minimum_spend_vnd) continue;
+      if (![...cardsOf(a)].some((k) => cardsOf(b).has(k))) continue;
+      involved.add(a.title).add(b.title);
     }
   }
-  return notes;
+  if (!involved.size) return [];
+  return [
+    `${involved.size} ưu đãi cùng cửa hàng và cùng thẻ nhưng mức khác nhau (${[...involved].map((t) => `"${t}"`).join(", ")}): kiểm tra thẻ nào hưởng mức nào (theo tên thẻ hoặc 6 số đầu thẻ) và bỏ bớt thẻ ở từng ưu đãi.`,
+  ];
+}
+
+/** Money offers without a VND amount or percentage (e.g. stated in USD) need a manual check. */
+export function amountNotes(offers: Offer[]): string[] {
+  return offers
+    .filter((o) => (o.benefit_type === "cashback" || o.benefit_type === "discount") && o.percentage === null && o.fixed_amount_vnd === null)
+    .map((o) => `"${o.title}": không có số tiền VND hay tỷ lệ (có thể ghi bằng ngoại tệ): ước tính tiết kiệm sẽ ở trạng thái thiếu thông tin.`);
 }
 
 export interface RunReport {
@@ -193,7 +203,7 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
           : "no_offers";
       consecutiveLlmErrors = 0;
       mark(outcome, promo.contentHash, promo.expiryDate);
-      const reviewNotes = tierNotes(promo, extraction.accepted);
+      const reviewNotes = [...tierNotes(promo, extraction.accepted), ...amountNotes(extraction.accepted)];
       pages.push({ url, outcome, title: promo.title, extraction, ...(reviewNotes.length ? { reviewNotes } : {}) });
       if (extraction.accepted.length) results.push({ promo, offers: extraction.accepted });
     } catch (e) {
@@ -217,7 +227,7 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
     bank: o.bank,
     results,
     retrievedAt: o.retrievedAt,
-    knownMerchantSlugs: o.knownMerchantSlugs,
+    knownMerchants: o.knownMerchants,
     cardPageBySlug,
   });
 
