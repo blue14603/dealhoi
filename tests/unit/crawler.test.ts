@@ -314,6 +314,25 @@ describe("full run", () => {
     expect(again.bundles.main.deals).toHaveLength(0);
   });
 
+  it("writes each card and merchant stub only once across runs", async () => {
+    const state: CrawlState = { pages: {}, lastPromoCount: null };
+    const caller = vi.fn().mockResolvedValue({ offers: [offer({ merchant_names: ["Apple store Flagship"] })], notes: null });
+    const first = await runCrawl({ ...base, caller, state, today: "2026-03-01" });
+    expect(first.bundles.stubs.cards.length).toBeGreaterThan(0);
+    expect(first.bundles.stubs.merchants.map((m) => m.slug)).toEqual(["apple-store-flagship"]);
+    const again = await runCrawl({ ...base, caller, state, today: "2026-03-02", force: true });
+    expect(again.bundles.stubs.cards.length).toBe(first.bundles.stubs.cards.length); // --force writes all again
+    const changed = shopeeHtml.replace("Địa điểm áp dụng: Toàn quốc", "Địa điểm áp dụng: Toàn quốc (cập nhật)");
+    pages[SHOPEE_URL] = changed;
+    try {
+      const third = await runCrawl({ ...base, caller, state, today: "2026-03-03" });
+      expect(third.bundles.main.deals.length).toBeGreaterThan(0);
+      expect(third.bundles.stubs).toEqual({ cards: [], merchants: [] });
+    } finally {
+      pages[SHOPEE_URL] = shopeeHtml;
+    }
+  });
+
   it("marks expired promotions and does not refetch them", async () => {
     const state: CrawlState = { pages: {}, lastPromoCount: null };
     const caller = vi.fn();

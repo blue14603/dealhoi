@@ -29,6 +29,11 @@ export interface CrawlState {
   lastPromoCount: number | null;
   /** Unmatched promotion-like URLs already reported, so only new ones are shown. */
   seenUnmatched?: string[];
+  /**
+   * Card and merchant slugs already written to a stubs file. Later runs only
+   * write new ones, so re-importing never overwrites details entered by hand.
+   */
+  emittedStubs?: { cards: string[]; merchants: string[] };
 }
 
 export function loadState(path: string): CrawlState {

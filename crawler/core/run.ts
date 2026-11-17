@@ -231,6 +231,17 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
     cardPageBySlug,
   });
 
+  // Only new stubs: the importer overwrites every field of an existing card.
+  const emitted = o.force ? { cards: [], merchants: [] } : (o.state.emittedStubs ?? { cards: [], merchants: [] });
+  const known = { cards: new Set(emitted.cards), merchants: new Set(emitted.merchants) };
+  bundles.stubs.cards = bundles.stubs.cards.filter((c) => !known.cards.has(String(c.slug)));
+  bundles.stubs.merchants = bundles.stubs.merchants.filter((m) => !known.merchants.has(String(m.slug)));
+  const previous = o.state.emittedStubs ?? { cards: [], merchants: [] };
+  o.state.emittedStubs = {
+    cards: [...new Set([...previous.cards, ...bundles.stubs.cards.map((c) => String(c.slug))])].sort(),
+    merchants: [...new Set([...previous.merchants, ...bundles.stubs.merchants.map((m) => String(m.slug))])].sort(),
+  };
+
   return {
     bank: o.bank.slug,
     today: o.today,
@@ -261,7 +272,10 @@ export function renderReport(r: RunReport): string {
       `trùng lặp ${count("duplicate")}, chỉ phân tích ${count("parsed")}, không đọc được ${count("unparseable")}, lỗi ${count("error")}`,
   );
   lines.push(`- Ưu đãi nháp trong bundle: ${r.bundles.main.deals.length} (nguồn: ${r.bundles.main.sources.length})`);
-  lines.push(`- Thẻ/cửa hàng tạm (stubs): ${r.bundles.stubs.cards.length} thẻ, ${r.bundles.stubs.merchants.length} cửa hàng`, "");
+  lines.push(
+    `- Thẻ/cửa hàng tạm mới (stubs.json): ${r.bundles.stubs.cards.length} thẻ, ${r.bundles.stubs.merchants.length} cửa hàng (chỉ những cái chưa ghi ở lần chạy trước)`,
+    "",
+  );
 
   if (r.warnings.length) lines.push("## Cảnh báo", ...r.warnings.map((w) => `- ⚠️ ${w}`), "");
   if (r.unknownCardSlugs.length) {
