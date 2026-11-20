@@ -334,7 +334,7 @@ describe("full run", () => {
     try {
       const third = await runCrawl({ ...base, caller, state, today: "2026-03-03" });
       expect(third.bundles.main.deals.length).toBeGreaterThan(0);
-      expect(third.bundles.stubs).toEqual({ sources: [], cards: [], merchants: [] });
+      expect(third.bundles.stubs).toEqual({ sources: [], cards: [], merchants: [], card_details: [] });
     } finally {
       pages[SHOPEE_URL] = shopeeHtml;
     }
@@ -721,13 +721,20 @@ describe("card pages", () => {
 
     // Unchanged page: no model call.
     const idle = makeCaller(details());
-    await run(state, cardHtml, idle, "2026-11-21");
+    const second = await run(state, cardHtml, idle, "2026-11-21");
     expect(idle).not.toHaveBeenCalled();
+    // The card was emitted already: its facts come as card_details (fill empty fields only), with its page as source.
+    expect(second.bundles.stubs.cards).toEqual([]);
+    expect(second.bundles.stubs.card_details).toEqual([
+      expect.objectContaining({ slug: "techcombank-spark", source_url: CARD_URL, annual_fee_vnd: 699000, network: "Mastercard" }),
+    ]);
+    expect(second.bundles.stubs.sources.map((x) => x.url)).toEqual([CARD_URL]);
 
     // The bank raises the fee: the card is not re-emitted, a change is proposed.
     const raised = cardHtml.replace(/699,000 VND/g, "799,000 VND");
     const later = await run(state, raised, makeCaller(details({ annual_fee_vnd: 799000, evidence: ["phí thường niên tiêu chuẩn là 799,000 VND/năm"] })), "2026-11-22");
     expect(later.bundles.stubs.cards).toEqual([]);
+    expect(later.bundles.stubs.card_details[0]).toMatchObject({ annual_fee_vnd: 799000 });
     expect(later.cards[0].changes).toEqual([{ field: "annual_fee_vnd", from: 699000, to: 799000 }]);
     expect(renderReport(later)).toContain("annual_fee_vnd: 699000 → 799000");
   });

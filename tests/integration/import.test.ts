@@ -101,3 +101,44 @@ d("import against PostgreSQL", () => {
     expect(r2.errors[0].message).toMatch(/ít nhất một thẻ/);
   });
 });
+
+d("card_details import against PostgreSQL", () => {
+  const url = "https://example.com/the/card-details-test";
+  const source = { url, publisher: "Test Bank", source_type: "official_bank", source_excerpt: "Phí thường niên 699,000 VND", retrieved_at: "2026-11-20T00:00:00.000Z" };
+  const setup = async () => {
+    const [bank] = await sql`select slug from banks limit 1`;
+    await sql.begin((tx) =>
+      runImport(tx, { cards: [{ slug: "card-details-test", bank_slug: bank.slug, name: "Thẻ thử", annual_fee_vnd: 500000 }] }, { mode: "admin", dryRun: false }),
+    );
+  };
+
+  it("fills only empty fields, keeps entered values, and links the card page as source", async () => {
+    await setup();
+    const r = await sql.begin((tx) =>
+      runImport(
+        tx,
+        { sources: [source], card_details: [{ slug: "card-details-test", source_url: url, network: "Visa", annual_fee_vnd: 699000, minimum_income_vnd: 10000000 }] },
+        { mode: "admin", dryRun: false },
+      ),
+    );
+    expect(r.ok).toBe(true);
+    const item = r.items.find((i) => i.entity === "card_details")!;
+    expect(item.action).toBe("update");
+    expect(item.notes.join(" ")).toMatch(/annual_fee_vnd = 699000/);
+    const [card] = await sql`select c.network, c.annual_fee_vnd, c.minimum_income_vnd, s.url from credit_cards c left join sources s on s.id = c.source_id where c.slug = 'card-details-test'`;
+    expect(card).toMatchObject({ network: "Visa", url });
+    expect(Number(card.annual_fee_vnd)).toBe(500000);
+    expect(Number(card.minimum_income_vnd)).toBe(10000000);
+
+    const again = await sql.begin((tx) =>
+      runImport(tx, { sources: [source], card_details: [{ slug: "card-details-test", source_url: url, network: "Visa" }] }, { mode: "admin", dryRun: false }),
+    );
+    expect(again.items.find((i) => i.entity === "card_details")?.action).toBe("unchanged");
+  });
+
+  it("reports unknown cards", async () => {
+    const r = await sql.begin((tx) => runImport(tx, { card_details: [{ slug: "no-such-card", network: "Visa" }] }, { mode: "admin", dryRun: true }));
+    expect(r.ok).toBe(false);
+    expect(r.errors[0].message).toMatch(/stubs\.json/);
+  });
+});

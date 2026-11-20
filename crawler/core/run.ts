@@ -1,5 +1,5 @@
 import { isQuotaError, type StructuredCaller } from "@/lib/ai/openai-client";
-import { cardChanges, cardFieldsToCheck, cardPageAsPromo, extractCardDetails, type CardDetails } from "./cards";
+import { CARD_FIELDS, cardChanges, cardFieldsToCheck, cardPageAsPromo, extractCardDetails, type CardDetails } from "./cards";
 import { buildBundles, type Bundles } from "./bundle";
 import { extractOffers, type CategoryInfo, type ExtractionResult, type Offer } from "./extract";
 import { RobotsDisallowedError } from "./http";
@@ -75,7 +75,7 @@ export interface CardPageReport {
   /** Fields that passed validation but are not in the card's own name: check them. */
   toCheck?: ("network" | "card_tier")[];
   problems?: string[];
-  /** Changes for a card already written to stubs.json earlier: update it by hand in /admin/cards. */
+  /** Changes for a card already written to stubs.json earlier: empty fields are filled via card_details, others by hand. */
   changes?: { field: string; from: unknown; to: unknown }[];
   detail?: string;
 }
@@ -237,6 +237,7 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
   // Card pages: facts for the card record, plus ongoing benefits as deals.
   const cardReports: CardPageReport[] = [];
   const newDetails = new Map<string, { details: CardDetails; url: string; excerpt: string }>();
+  const cardPageText = new Map<string, { url: string; excerpt: string }>();
   if (o.bank.parseCardPage) {
     for (const { url } of discovery.cards) {
       const slug = url.split("/").pop()!;
@@ -260,6 +261,7 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
         cardReports.push({ url, slug, outcome: "unparseable", detail: "Không đọc được nội dung trang thẻ" });
         continue;
       }
+      cardPageText.set(slug, { url, excerpt: page.text.slice(0, 5000) });
       if (!o.force && prior?.hash === page.contentHash && prior.outcome !== "error" && prior.outcome !== "needs_manual") {
         cardReports.push({ url, slug, outcome: "unchanged" });
         continue;
@@ -369,6 +371,28 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
   }
   o.state.cardDetails = previousDetails;
 
+  // Cards imported earlier get their page facts as card_details: the importer
+  // fills only the fields still empty, so values entered in /admin are kept.
+  for (const slug of [...known.cards].sort()) {
+    const details = previousDetails[slug];
+    const page = cardPageText.get(slug);
+    if (!details || !page) continue;
+    bundles.stubs.card_details.push({ slug, source_url: page.url, ...Object.fromEntries(CARD_FIELDS.map((f) => [f, details[f]])) });
+    if (!bundles.stubs.sources.some((s) => s.url === page.url)) {
+      bundles.stubs.sources.push({
+        url: page.url,
+        publisher: o.bank.name,
+        source_type: "official_bank",
+        source_excerpt: page.excerpt,
+        published_at: null,
+        retrieved_at: o.retrievedAt,
+        verified_at: null,
+        verification_notes: null,
+        is_demo: false,
+      });
+    }
+  }
+
   return {
     bank: o.bank.slug,
     today: o.today,
@@ -401,7 +425,7 @@ export function renderReport(r: RunReport): string {
   );
   lines.push(`- Ưu đãi nháp trong bundle: ${r.bundles.main.deals.length} (nguồn: ${r.bundles.main.sources.length})`);
   lines.push(
-    `- Thẻ/cửa hàng tạm mới (stubs.json): ${r.bundles.stubs.cards.length} thẻ, ${r.bundles.stubs.merchants.length} cửa hàng (chỉ những cái chưa ghi ở lần chạy trước)`,
+    `- Thẻ/cửa hàng tạm mới (stubs.json): ${r.bundles.stubs.cards.length} thẻ, ${r.bundles.stubs.merchants.length} cửa hàng (chỉ những cái chưa ghi ở lần chạy trước), ${r.bundles.stubs.card_details.length} thẻ đã nhập được bổ sung thông tin (card_details)`,
     "",
   );
 
@@ -419,7 +443,7 @@ export function renderReport(r: RunReport): string {
   if (read.length) {
     lines.push(
       "## Thông tin thẻ đọc được",
-      "Đã điền vào stubs.json (thẻ mới). Vẫn cần đối chiếu và xác minh trong /admin/cards. (?) = không có trong tên thẻ, có thể lấy từ thẻ khác trên trang: kiểm tra.",
+      "Đã điền vào stubs.json (thẻ mới, hoặc card_details cho thẻ đã nhập). Vẫn cần đối chiếu và xác minh trong /admin/cards. (?) = không có trong tên thẻ, có thể lấy từ thẻ khác trên trang: kiểm tra.",
       "",
       "| Thẻ | Phí thường niên | Tổ chức | Hạng | Thu nhập tối thiểu |",
       "| --- | --- | --- | --- | --- |",
@@ -432,7 +456,7 @@ export function renderReport(r: RunReport): string {
   }
   const changed = r.cards.filter((x) => x.changes?.length);
   if (changed.length) {
-    lines.push("## Đề xuất cập nhật thẻ", "Thẻ đã nhập trước đây không bị ghi đè. Cập nhật tay trong /admin/cards nếu đúng:", "");
+    lines.push("## Đề xuất cập nhật thẻ", "Nhập stubs.json sẽ điền các trường còn trống của thẻ (card_details). Trường đã có giá trị không bị ghi đè: sửa tay trong /admin/cards nếu đúng.", "");
     for (const x of changed) {
       lines.push(`### ${x.details?.card_name ?? x.slug}`, x.url, ...x.changes!.map((ch) => `- ${ch.field}: ${ch.from ?? "—"} → ${ch.to ?? "—"}`), "");
     }

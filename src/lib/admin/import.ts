@@ -6,6 +6,7 @@ import {
   ENTITY_SCHEMAS,
   ImportBundleSchema,
   type BankImport,
+  type CardDetailsImport,
   type CardImport,
   type CategoryImport,
   type DealImport,
@@ -65,6 +66,7 @@ type Parsed = {
   merchants: MerchantImport[];
   sources: SourceImport[];
   cards: CardImport[];
+  card_details: CardDetailsImport[];
   deals: DealImport[];
 };
 
@@ -74,8 +76,11 @@ const KEY_OF: Record<EntityKind, (r: Record<string, unknown>) => string> = {
   merchants: (r) => String(r.slug ?? ""),
   sources: (r) => String(r.url ?? ""),
   cards: (r) => String(r.slug ?? ""),
+  card_details: (r) => String(r.slug ?? ""),
   deals: (r) => String(r.import_key ?? ""),
 };
+
+const CARD_DETAIL_FIELDS = ["network", "card_tier", "annual_fee_vnd", "annual_fee_waiver_terms", "minimum_income_vnd", "description"] as const;
 
 class DryRunRollback extends Error {}
 
@@ -91,7 +96,7 @@ function formatZodError(err: z.ZodError): string {
 export function validateBundle(input: unknown): { parsed: Parsed; errors: ImportIssue[]; warnings: ImportIssue[] } {
   const errors: ImportIssue[] = [];
   const warnings: ImportIssue[] = [];
-  const parsed: Parsed = { banks: [], categories: [], merchants: [], sources: [], cards: [], deals: [] };
+  const parsed: Parsed = { banks: [], categories: [], merchants: [], sources: [], cards: [], card_details: [], deals: [] };
   const bundle = ImportBundleSchema.safeParse(input);
   if (!bundle.success) {
     errors.push({ entity: "deals", index: -1, key: "", message: `Tệp không đúng định dạng: ${formatZodError(bundle.error)}` });
@@ -337,6 +342,42 @@ export async function runImport(sql: TxSql, input: unknown, opts: ImportOptions)
             record("cards", c.slug, "update", [`Thay đổi: ${diff.join(", ")}`, ...notes]);
           } else record("cards", c.slug, "unchanged");
         }
+      }
+
+      // Card details: fill only the fields still empty on an existing card ------
+      for (const [index, c] of parsed.card_details.entries()) {
+        const [ex] = await tx`select * from credit_cards where slug = ${c.slug}`;
+        if (!ex) {
+          report.errors.push({ entity: "card_details", index, key: c.slug, message: `Không tìm thấy thẻ "${c.slug}" (nhập stubs.json trước)` });
+          continue;
+        }
+        ids.cards.set(c.slug, ex.id as string);
+        const fill: Record<string, unknown> = {};
+        for (const f of CARD_DETAIL_FIELDS) {
+          if ((ex[f] === null || ex[f] === undefined) && c[f] !== null) fill[f] = c[f];
+        }
+        if (ex.source_id === null && c.source_url) {
+          const src = await sourceRef(c.source_url);
+          if (src === undefined) {
+            report.errors.push({ entity: "card_details", index, key: c.slug, message: `Không tìm thấy nguồn "${c.source_url}" (khai báo trong mục sources)` });
+            continue;
+          }
+          fill.source_id = src!.id;
+        }
+        const kept = CARD_DETAIL_FIELDS.filter((f) => ex[f] !== null && ex[f] !== undefined && c[f] !== null && String(ex[f]) !== String(c[f]));
+        const notes = kept.length ? [`Giữ giá trị đã nhập, trang thẻ ghi khác: ${kept.map((f) => `${f} = ${c[f]}`).join(", ")}`] : [];
+        const fields = Object.keys(fill);
+        if (!fields.length) {
+          record("card_details", c.slug, "unchanged", notes);
+          continue;
+        }
+        let status = ex.verification_status as string;
+        if (status === "verified" && fields.some((f) => f !== "description")) {
+          status = "needs_review";
+          notes.push("Thông tin tài chính thay đổi: chuyển sang cần xác minh lại");
+        }
+        await tx`update credit_cards set ${tx({ ...fill, verification_status: status })} where id = ${ex.id as string}`;
+        record("card_details", c.slug, "update", [`Đã điền: ${fields.join(", ")}`, ...notes]);
       }
 
       const cardId = async (slug: string) => {

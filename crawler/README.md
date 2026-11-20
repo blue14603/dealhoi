@@ -28,7 +28,7 @@ Files go to `.crawl/out/<bank>/<date>/` (git-ignored):
 | File | Contents | What to do |
 | --- | --- | --- |
 | `report.md` | Counts, warnings, offers that failed validation, card keys without a card page, URLs that look like promotions but match no pattern | Read first |
-| `stubs.json` | Card and new-merchant records with only the fields the bank publishes | Import **once**, then complete fees and details by hand in `/admin/cards` |
+| `stubs.json` | New card and merchant records, plus `card_details` (fill-empty-fields-only) for cards imported earlier | Import, then check and verify cards in `/admin/cards` |
 | `bundle.json` | Sources + draft deals | `npm run data:import -- bundle.json --dry-run`, then import and review |
 | `parsed.json` | Structured data read from each active credit card page | Reference while reviewing |
 
@@ -68,9 +68,11 @@ When the adapter implements `parseCardPage`, each card page is read too:
   source;
 - ongoing benefits on the page become deals in `bundle.json`; campaigns and
   welcome offers are left to the promotion pages, to avoid duplicates;
-- for a card already written to an earlier `stubs.json`, nothing is
-  overwritten: the report lists "Đề xuất cập nhật thẻ" (old → new) to apply by
-  hand in `/admin/cards`.
+- for a card already written to an earlier `stubs.json`, the facts go to
+  `card_details` in `stubs.json`: the importer fills only the card's empty
+  fields (and links the card page as its source if it has none), so values
+  entered in `/admin/cards` are kept. Differences from entered values are
+  listed in the import result and in the report as "Đề xuất cập nhật thẻ".
 
 Card facts still need a person to verify them before the card is published.
 

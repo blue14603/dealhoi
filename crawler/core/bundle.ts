@@ -16,7 +16,7 @@ import type { BankAdapter, ParsedPromo } from "./types";
 export interface Bundles {
   main: { sources: SourceImport[]; deals: DealImport[] };
   /** Card pages are added as sources so a card can be verified once its page is reviewed. */
-  stubs: { sources: SourceImport[]; cards: Record<string, unknown>[]; merchants: Record<string, unknown>[] };
+  stubs: { sources: SourceImport[]; cards: Record<string, unknown>[]; merchants: Record<string, unknown>[]; card_details: Record<string, unknown>[] };
   invalid: { importKey: string; problems: string[] }[];
 }
 
@@ -68,7 +68,7 @@ export function buildBundles(args: {
   cardPageBySlug: Map<string, string>;
 }): Bundles {
   const { bank } = args;
-  const bundles: Bundles = { main: { sources: [], deals: [] }, stubs: { sources: [], cards: [], merchants: [] }, invalid: [] };
+  const bundles: Bundles = { main: { sources: [], deals: [] }, stubs: { sources: [], cards: [], merchants: [], card_details: [] }, invalid: [] };
   const cardStubs = new Map<string, Record<string, unknown>>();
   const merchantStubs = new Map<string, Record<string, unknown>>();
 

@@ -92,6 +92,21 @@ export const CardImportSchema = z.object({
   is_demo: bool(false),
 });
 
+/**
+ * Facts read from a card page for a card that already exists. Only fields that
+ * are still empty on the card are filled; nothing typed in /admin is overwritten.
+ */
+export const CardDetailsImportSchema = z.object({
+  slug,
+  source_url: optUrl,
+  network: z.string().trim().max(60).nullish().transform((v) => v || null),
+  card_tier: z.string().trim().max(60).nullish().transform((v) => v || null),
+  annual_fee_vnd: optVnd,
+  annual_fee_waiver_terms: optText,
+  minimum_income_vnd: optVnd,
+  description: optText,
+});
+
 export const DealCardImportSchema = z.object({
   card_slug: slug,
   additional_eligibility_terms: optText,
@@ -134,6 +149,7 @@ export const ImportBundleSchema = z.object({
   merchants: z.array(z.unknown()).default([]),
   sources: z.array(z.unknown()).default([]),
   cards: z.array(z.unknown()).default([]),
+  card_details: z.array(z.unknown()).default([]),
   deals: z.array(z.unknown()).default([]),
 });
 
@@ -142,9 +158,10 @@ export type CategoryImport = z.infer<typeof CategoryImportSchema>;
 export type MerchantImport = z.infer<typeof MerchantImportSchema>;
 export type SourceImport = z.infer<typeof SourceImportSchema>;
 export type CardImport = z.infer<typeof CardImportSchema>;
+export type CardDetailsImport = z.infer<typeof CardDetailsImportSchema>;
 export type DealImport = z.infer<typeof DealImportSchema>;
 
-export const ENTITY_ORDER = ["banks", "categories", "merchants", "sources", "cards", "deals"] as const;
+export const ENTITY_ORDER = ["banks", "categories", "merchants", "sources", "cards", "card_details", "deals"] as const;
 export type EntityKind = (typeof ENTITY_ORDER)[number];
 
 export const ENTITY_SCHEMAS = {
@@ -153,5 +170,6 @@ export const ENTITY_SCHEMAS = {
   merchants: MerchantImportSchema,
   sources: SourceImportSchema,
   cards: CardImportSchema,
+  card_details: CardDetailsImportSchema,
   deals: DealImportSchema,
 } as const;
