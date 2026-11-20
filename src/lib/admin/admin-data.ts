@@ -264,7 +264,10 @@ export async function adminDashboardStats() {
       (select count(*)::int from deals where publication_status = 'draft') as drafts,
       (select count(*)::int from deals where publication_status = 'published' and end_date < ${todayInVietnam()}::date) as expired_published,
       (select count(*)::int from sources where verified_at is null) as unreviewed_sources,
-      (select count(*)::int from credit_cards where verification_status <> 'verified') as unverified_cards`;
+      (select count(*)::int from credit_cards where verification_status <> 'verified') as unverified_cards,
+      (select count(*)::int from credit_cards where verification_status <> 'verified' and annual_fee_vnd is null) as cards_missing_fee,
+      (select count(*)::int from deals) as total_deals,
+      (select count(*)::int from deals d where publication_status <> 'published' and not exists (select 1 from deal_cards dc where dc.deal_id = d.id)) as deals_without_cards`;
   const audit = await sql`select actor_email, action, entity_type, created_at from admin_audit_log order by created_at desc limit 10`;
   return { counts, audit };
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHint } from "@/components/admin/page-hint";
 import { Badge } from "@/components/ui/badge";
 import { listAdminCards } from "@/lib/admin/admin-data";
 import { requireAdmin } from "@/lib/admin/auth";
@@ -10,6 +11,7 @@ export default async function AdminCards() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Thẻ tín dụng ({cards.length})</h1>
+      <PageHint guide="the">Điền hoặc đối chiếu phí thường niên, tổ chức thẻ và hạng thẻ với trang thẻ, rồi chọn verified. Thẻ chỉ xác minh được khi nguồn của nó đã duyệt.</PageHint>
       <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
         {cards.map((c) => (
           <li key={String(c.id)} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">

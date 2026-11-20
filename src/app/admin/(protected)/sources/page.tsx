@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { PageHint } from "@/components/admin/page-hint";
 import { listAdminSources } from "@/lib/admin/admin-data";
 import { requireAdmin } from "@/lib/admin/auth";
 import { formatTimestampDate } from "@/lib/domain/format";
@@ -19,6 +20,7 @@ export default async function AdminSources() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Nguồn dữ liệu ({sources.length})</h1>
+      <PageHint guide="nguon">Mở nguồn, so trang ngân hàng với dữ liệu đã nhập, rồi bấm Đánh dấu đã duyệt.</PageHint>
       <p className="text-sm text-ink-muted">Mở từng nguồn, đối chiếu với điều khoản đã nhập rồi đánh dấu đã duyệt. Bỏ duyệt sẽ tự động gỡ xuất bản các ưu đãi phụ thuộc.</p>
       <ul className="space-y-3">
         {sources.map((s) => (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHint } from "@/components/admin/page-hint";
 import { Badge } from "@/components/ui/badge";
 import { listAdminDeals } from "@/lib/admin/admin-data";
 import { requireAdmin } from "@/lib/admin/auth";
@@ -22,6 +23,7 @@ export default async function AdminDeals({ searchParams }: { searchParams: Promi
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Ưu đãi ({deals.length})</h1>
+      <PageHint guide="uu-dai">Mở từng ưu đãi, đối chiếu với trang nguồn, kiểm tra thẻ đủ điều kiện, rồi chọn verified và xuất bản.</PageHint>
       <nav className="flex flex-wrap gap-2" aria-label="Lọc trạng thái">
         {FILTERS.map((f) => (
           <Link key={f.v} href={f.v ? `/admin/deals?status=${f.v}` : "/admin/deals"} className={`rounded-full border px-3 py-1 text-sm ${(valid ?? "") === f.v ? "border-brand text-brand" : "border-line-strong"}`}>

@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/admin/cards", label: "Thẻ" },
   { href: "/admin/sources", label: "Nguồn" },
   { href: "/admin/import", label: "Nhập dữ liệu" },
+  { href: "/admin/huong-dan", label: "Hướng dẫn" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
