@@ -10,7 +10,7 @@ import { parseRobots } from "../../crawler/core/robots";
 import { amountNotes, renderReport, runCrawl, tierNotes } from "../../crawler/core/run";
 import { buildBundles } from "../../crawler/core/bundle";
 import { resolveMerchant } from "../../crawler/core/merchants";
-import { validateCardDetails, type CardDetails } from "../../crawler/core/cards";
+import { cardFieldsToCheck, validateCardDetails, type CardDetails } from "../../crawler/core/cards";
 import { parseCardPage } from "../../crawler/banks/techcombank";
 import { parseSitemap } from "../../crawler/core/sitemap";
 import type { CrawlState } from "../../crawler/core/state";
@@ -648,7 +648,24 @@ describe("card pages", () => {
     expect(validateCardDetails(details({ network: "Visa" }), page)).toContain("network Visa không có trong trang");
     expect(validateCardDetails(details({ card_tier: "Platinum" }), page)).toContain('card_tier "Platinum" không có trong trang');
     expect(validateCardDetails(details({ minimum_income_vnd: 10000000 }), page)).toContain("minimum_income_vnd 10000000 không có trong trang");
-    expect(validateCardDetails(details({ evidence: ["Phí thường niên 0 đồng trọn đời"] }), page)[0]).toContain("evidence không trích");
+    // An invented quote is ignored, but then the fee has no real quote behind it.
+    expect(validateCardDetails(details({ evidence: ["Phí thường niên 699,000 VND trọn đời"] }), page)[0]).toContain(
+      "annual_fee_vnd 699000 không nằm trong câu trích nguyên văn nào",
+    );
+    // A marketing sentence that is not on the page no longer rejects a correctly quoted fee
+    // (Vietnam Airlines Visa Classic, live run).
+    expect(
+      validateCardDetails(
+        details({ evidence: ["Thẻ tốt nhất cho nhu cầu du lịch và tích dặm bay.", "phí thường niên tiêu chuẩn là 699,000 VND/năm"] }),
+        page,
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags network and tier that are not in the card's own name", () => {
+    expect(cardFieldsToCheck(details(), page)).toEqual(["network"]); // "Mastercard" is only in the page text
+    expect(cardFieldsToCheck(details({ network: null, card_tier: "Platinum" }), { ...page, text: page.text + " Platinum" })).toEqual(["card_tier"]);
+    expect(cardFieldsToCheck(details({ card_name: "Techcombank Spark Mastercard" }), page)).toEqual([]);
   });
 
   const index = `<sitemapindex><sitemap><loc>https://techcombank.com/vn.sitemap.vi-sitemap.xml</loc></sitemap></sitemapindex>`;
@@ -700,7 +717,7 @@ describe("card pages", () => {
     expect(first.bundles.stubs.sources.find((x) => x.url === CARD_URL)?.source_excerpt).toContain("699,000 VND");
     expect(first.bundles.main.deals.map((d) => d.title)).toEqual(["Hoàn 1% không giới hạn mọi chi tiêu"]);
     expect(first.bundles.main.deals[0].cards).toEqual([{ card_slug: "techcombank-spark", additional_eligibility_terms: null }]);
-    expect(renderReport(first)).toContain("| Thẻ tín dụng Techcombank Spark | 699.000 đ | Mastercard |");
+    expect(renderReport(first)).toContain("| Thẻ tín dụng Techcombank Spark | 699.000 đ | Mastercard (?) |");
 
     // Unchanged page: no model call.
     const idle = makeCaller(details());
@@ -715,7 +732,16 @@ describe("card pages", () => {
     expect(renderReport(later)).toContain("annual_fee_vnd: 699000 → 799000");
   });
 
-  it("lists cards whose facts fail validation for manual entry", async () => {
+  it("tries rejected card pages again on the next normal run", async () => {
+    const state: CrawlState = { pages: {}, lastPromoCount: null };
+    await run(state, cardHtml, makeCaller(details({ annual_fee_vnd: 599000 })), "2026-11-20");
+    const retry = makeCaller(details());
+    const again = await run(state, cardHtml, retry, "2026-11-21");
+    expect(retry).toHaveBeenCalled();
+    expect(again.cards[0].outcome).toBe("extracted");
+  });
+
+    it("lists cards whose facts fail validation for manual entry", async () => {
     const state: CrawlState = { pages: {}, lastPromoCount: null };
     const r = await run(state, cardHtml, makeCaller(details({ annual_fee_vnd: 599000 })), "2026-11-20");
     expect(r.cards[0].outcome).toBe("needs_manual");

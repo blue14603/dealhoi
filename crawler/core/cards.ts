@@ -99,15 +99,33 @@ export function validateCardDetails(d: CardDetails, page: ParsedCardPage): strin
     if (!lower.includes(word)) problems.push(`network ${d.network} không có trong trang`);
   }
   if (d.card_tier && !lower.includes(squashLower(d.card_tier))) problems.push(`card_tier "${d.card_tier}" không có trong trang`);
-  if ((d.annual_fee_vnd !== null || d.minimum_income_vnd !== null) && d.evidence.length === 0) {
-    problems.push("thiếu trích dẫn cho phí thường niên / thu nhập");
+  // Quotes that are not on the page are ignored; each figure must sit in at least one real quote.
+  const quotes = d.evidence.filter((q) => quoteFound(haystack, q));
+  const quoted = new Set(quotes.flatMap((q) => extractNumbers(q).amounts));
+  const freeQuoted = quotes.some((q) => /miễn phí/i.test(q));
+  if (d.annual_fee_vnd !== null && !(d.annual_fee_vnd === 0 ? freeQuoted : quoted.has(d.annual_fee_vnd))) {
+    problems.push(`annual_fee_vnd ${d.annual_fee_vnd} không nằm trong câu trích nguyên văn nào từ trang`);
   }
-  for (const q of d.evidence) {
-    if (!quoteFound(haystack, q)) {
-      problems.push(`evidence không trích nguyên văn từ trang: "${q.length > 120 ? `${q.slice(0, 120)}…` : q}"`);
-    }
+  if (d.minimum_income_vnd !== null && !quoted.has(d.minimum_income_vnd)) {
+    problems.push(`minimum_income_vnd ${d.minimum_income_vnd} không nằm trong câu trích nguyên văn nào từ trang`);
   }
   return problems;
+}
+
+/**
+ * Network and tier only need to appear somewhere on the page, which can be
+ * another card mentioned there. Flag them for a check unless the card's own
+ * name says so.
+ */
+export function cardFieldsToCheck(d: CardDetails, page: ParsedCardPage): ("network" | "card_tier")[] {
+  const name = squashLower(`${d.card_name} ${page.title} ${page.slug.replace(/-/g, " ")}`);
+  const out: ("network" | "card_tier")[] = [];
+  if (d.network) {
+    const word = d.network === "Mastercard" ? "master" : d.network.toLowerCase();
+    if (!name.includes(word)) out.push("network");
+  }
+  if (d.card_tier && !name.includes(squashLower(d.card_tier))) out.push("card_tier");
+  return out;
 }
 
 export interface CardExtraction {

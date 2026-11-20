@@ -1,5 +1,5 @@
 import { isQuotaError, type StructuredCaller } from "@/lib/ai/openai-client";
-import { cardChanges, cardPageAsPromo, extractCardDetails, type CardDetails } from "./cards";
+import { cardChanges, cardFieldsToCheck, cardPageAsPromo, extractCardDetails, type CardDetails } from "./cards";
 import { buildBundles, type Bundles } from "./bundle";
 import { extractOffers, type CategoryInfo, type ExtractionResult, type Offer } from "./extract";
 import { RobotsDisallowedError } from "./http";
@@ -72,6 +72,8 @@ export interface CardPageReport {
   slug: string;
   outcome: "extracted" | "needs_manual" | "unchanged" | "parsed" | "unparseable" | "error";
   details?: CardDetails;
+  /** Fields that passed validation but are not in the card's own name: check them. */
+  toCheck?: ("network" | "card_tier")[];
   problems?: string[];
   /** Changes for a card already written to stubs.json earlier: update it by hand in /admin/cards. */
   changes?: { field: string; from: unknown; to: unknown }[];
@@ -186,7 +188,8 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
     }
     parsedAll.push(promo);
 
-    if (!o.force && prior?.hash === promo.contentHash && prior.outcome !== "error") {
+    // Pages that failed (error, rejected offers) are always tried again.
+    if (!o.force && prior?.hash === promo.contentHash && prior.outcome !== "error" && prior.outcome !== "needs_manual") {
       pages.push({ url, outcome: "unchanged", title: promo.title });
       continue;
     }
@@ -257,7 +260,7 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
         cardReports.push({ url, slug, outcome: "unparseable", detail: "Không đọc được nội dung trang thẻ" });
         continue;
       }
-      if (!o.force && prior?.hash === page.contentHash && prior.outcome !== "error") {
+      if (!o.force && prior?.hash === page.contentHash && prior.outcome !== "error" && prior.outcome !== "needs_manual") {
         cardReports.push({ url, slug, outcome: "unchanged" });
         continue;
       }
@@ -285,7 +288,7 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
           url,
           slug,
           outcome: facts.details ? "extracted" : "needs_manual",
-          ...(facts.details ? { details: facts.details } : {}),
+          ...(facts.details ? { details: facts.details, toCheck: cardFieldsToCheck(facts.details, page) } : {}),
           ...(facts.problems.length ? { problems: facts.problems } : {}),
         });
       } catch (e) {
@@ -416,11 +419,14 @@ export function renderReport(r: RunReport): string {
   if (read.length) {
     lines.push(
       "## Thông tin thẻ đọc được",
-      "Đã điền vào stubs.json (thẻ mới). Vẫn cần đối chiếu và xác minh trong /admin/cards.",
+      "Đã điền vào stubs.json (thẻ mới). Vẫn cần đối chiếu và xác minh trong /admin/cards. (?) = không có trong tên thẻ, có thể lấy từ thẻ khác trên trang: kiểm tra.",
       "",
       "| Thẻ | Phí thường niên | Tổ chức | Hạng | Thu nhập tối thiểu |",
       "| --- | --- | --- | --- | --- |",
-      ...read.map((x) => `| ${x.details!.card_name} | ${vnd(x.details!.annual_fee_vnd)} | ${x.details!.network ?? "—"} | ${x.details!.card_tier ?? "—"} | ${vnd(x.details!.minimum_income_vnd)} |`),
+      ...read.map((x) => {
+        const mark = (f: "network" | "card_tier", v: string | null) => (v ? `${v}${x.toCheck?.includes(f) ? " (?)" : ""}` : "—");
+        return `| ${x.details!.card_name} | ${vnd(x.details!.annual_fee_vnd)} | ${mark("network", x.details!.network)} | ${mark("card_tier", x.details!.card_tier)} | ${vnd(x.details!.minimum_income_vnd)} |`;
+      }),
       "",
     );
   }
