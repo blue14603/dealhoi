@@ -8,6 +8,13 @@ import { CAP_PERIODS, PAYMENT_CHANNELS, PUBLICATION_STATUSES, VERIFICATION_STATU
 import { ActionFeedback } from "./action-feedback";
 
 type DealValues = Record<string, string | number | boolean | null>;
+export interface CardOption {
+  id: string;
+  name: string;
+  bank_name: string;
+  is_active: boolean;
+  is_demo: boolean;
+}
 
 function Field({ name, label, value, type = "text", hint }: { name: string; label: string; value: unknown; type?: string; hint?: string }) {
   return (
@@ -19,7 +26,44 @@ function Field({ name, label, value, type = "text", hint }: { name: string; labe
   );
 }
 
-export function DealEditForm({ id, deal }: { id: string; deal: DealValues }) {
+function CardPicker({ options, selected }: { options: CardOption[]; selected: string[] }) {
+  const chosen = new Set(selected);
+  const groups = new Map<string, CardOption[]>();
+  for (const o of options) {
+    const key = o.is_demo && !/demo/i.test(o.bank_name) ? `${o.bank_name} (minh họa)` : o.bank_name;
+    groups.set(key, [...(groups.get(key) ?? []), o]);
+  }
+  return (
+    <fieldset className="rounded-2xl border border-line bg-surface p-5">
+      <legend className="px-1 text-sm font-semibold">Thẻ đủ điều kiện</legend>
+      <p className="mb-3 text-xs text-ink-subtle">
+        Chỉ chọn thẻ được hưởng đúng mức ưu đãi này. Ví dụ ưu đãi chia mức theo 6 số đầu thẻ: bỏ chọn thẻ thuộc mức khác. Ưu đãi đã xuất bản cần ít nhất một thẻ.
+      </p>
+      <input type="hidden" name="cards_present" value="1" />
+      {options.length === 0 ? (
+        <p className="text-sm text-ink-muted">Chưa có thẻ nào. Nhập thẻ trước (stubs.json) rồi quay lại.</p>
+      ) : (
+        <div className="space-y-4">
+          {[...groups].map(([bank, cards]) => (
+            <div key={bank}>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">{bank}</p>
+              <div className="grid gap-1 sm:grid-cols-2">
+                {cards.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="card_ids" value={c.id} defaultChecked={chosen.has(c.id)} className="size-4 accent-[var(--color-brand)]" />
+                    <span className={c.is_active ? "" : "text-ink-subtle line-through"}>{c.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </fieldset>
+  );
+}
+
+export function DealEditForm({ id, deal, cardOptions, selectedCardIds }: { id: string; deal: DealValues; cardOptions: CardOption[]; selectedCardIds: string[] }) {
   const [state, action, pending] = useActionState(saveDealAction.bind(null, id), undefined);
   return (
     <form action={action} className="space-y-6">
@@ -83,6 +127,7 @@ export function DealEditForm({ id, deal }: { id: string; deal: DealValues }) {
           <Textarea id="terms_and_conditions" name="terms_and_conditions" rows={3} defaultValue={String(deal.terms_and_conditions ?? "")} />
         </div>
       </div>
+      <CardPicker options={cardOptions} selected={selectedCardIds} />
       <div className="grid gap-4 rounded-2xl border border-line bg-surface p-5 md:grid-cols-3">
         <div>
           <Label htmlFor="verification_status">Trạng thái xác minh</Label>

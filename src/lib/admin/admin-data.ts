@@ -70,6 +70,14 @@ export async function getAdminDeal(id: string) {
   return { deal, cards };
 }
 
+/** All cards, for choosing the eligible cards of a deal. */
+export async function listCardOptions(): Promise<{ id: string; name: string; bank_name: string; is_active: boolean; is_demo: boolean }[]> {
+  return (await getSql()`
+    select c.id, c.name, b.name as bank_name, c.is_active, c.is_demo
+    from credit_cards c join banks b on b.id = c.bank_id
+    order by c.is_demo, b.name, c.name`) as unknown as { id: string; name: string; bank_name: string; is_active: boolean; is_demo: boolean }[];
+}
+
 const optInt = z.preprocess((v) => (v === "" || v === null || v === undefined ? null : Number(String(v).replace(/[.,\s]/g, ""))), z.number().int().min(0).nullable());
 const optPct = z.preprocess((v) => (v === "" || v === null || v === undefined ? null : Number(String(v).replace(",", "."))), z.number().min(0).max(100).nullable());
 const optDate = z.preprocess((v) => (v === "" ? null : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable());
@@ -96,6 +104,8 @@ export const DealEditSchema = z.object({
   verification_status: z.enum(VERIFICATION_STATUSES),
   publication_status: z.enum(PUBLICATION_STATUSES),
   is_featured: z.preprocess((v) => v === "on" || v === "true", z.boolean()),
+  /** Eligible cards; undefined leaves the current cards unchanged. */
+  card_ids: z.array(z.uuid()).max(50).optional(),
 });
 export type DealEdit = z.infer<typeof DealEditSchema>;
 
@@ -130,14 +140,23 @@ export async function updateDeal(id: string, input: DealEdit, actorEmail: string
     publicationStatus: input.publication_status,
     hasSource: d.source_id !== null,
     sourceReviewed: d.source_verified_at !== null,
-    cardCount: existing.cards.length,
+    cardCount: input.card_ids ? new Set(input.card_ids).size : existing.cards.length,
   });
   if (rules.errors.length || rules.publishBlockers.length) {
     return { ok: false, message: "Chưa thể lưu thay đổi.", errors: [...rules.errors, ...rules.publishBlockers], warnings: rules.warnings };
   }
   try {
     await withAdminTx(async (tx) => {
-      await tx`update deals set ${tx(input as Record<string, unknown>, Object.keys(input))} where id = ${id}`;
+      const { card_ids, ...fields } = input;
+      await tx`update deals set ${tx(fields as Record<string, unknown>, Object.keys(fields))} where id = ${id}`;
+      if (card_ids) {
+        // Keep the extra terms of cards that stay; remove unticked cards; add new ones.
+        const wanted = [...new Set(card_ids)];
+        await tx`delete from deal_cards where deal_id = ${id} and not (card_id = any(${wanted}::uuid[]))`;
+        for (const cardId of wanted) {
+          await tx`insert into deal_cards (deal_id, card_id) values (${id}, ${cardId}) on conflict (deal_id, card_id) do nothing`;
+        }
+      }
       await tx`insert into admin_audit_log ${tx({ actor_email: actorEmail, action: "update_deal", entity_type: "deal", entity_id: id, details: tx.json(JSON.parse(JSON.stringify(input))) })}`;
     });
   } catch (e) {

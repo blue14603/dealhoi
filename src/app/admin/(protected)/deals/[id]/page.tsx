@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DealEditForm } from "@/components/admin/deal-edit-form";
-import { getAdminDeal } from "@/lib/admin/admin-data";
+import { getAdminDeal, listCardOptions } from "@/lib/admin/admin-data";
 import { requireAdmin } from "@/lib/admin/auth";
 
 export default async function EditDeal({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const data = await getAdminDeal(id);
+  const [data, cardOptions] = await Promise.all([getAdminDeal(id), listCardOptions()]);
   if (!data) notFound();
   const { deal, cards } = data;
   const plain = Object.fromEntries(Object.entries(deal).map(([k, v]) => [k, v instanceof Date ? v.toISOString() : (v as string | number | boolean | null)]));
@@ -27,9 +27,9 @@ export default async function EditDeal({ params }: { params: Promise<{ id: strin
           ) : "không có"}
           {deal.source_url && !deal.source_verified_at && <span className="text-warn"> (chưa duyệt — <Link href="/admin/sources" className="underline">duyệt nguồn</Link>)</span>}
         </p>
-        <p className="mt-1 text-sm">Thẻ đủ điều kiện: {cards.map((c) => String(c.name)).join(", ") || "chưa có (cần nhập lại với card_slugs)"}</p>
+        <p className="mt-1 text-sm">Thẻ đủ điều kiện: {cards.map((c) => String(c.name)).join(", ") || "chưa có — chọn thẻ ở mục Thẻ đủ điều kiện bên dưới"}</p>
       </div>
-      <DealEditForm id={id} deal={plain} />
+      <DealEditForm id={id} deal={plain} cardOptions={cardOptions} selectedCardIds={cards.map((c) => String(c.card_id))} />
     </div>
   );
 }

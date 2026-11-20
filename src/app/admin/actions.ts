@@ -45,7 +45,11 @@ function revalidatePublic() {
 export async function saveDealAction(id: string, _prev: ActionResult | undefined, form: FormData): Promise<ActionResult> {
   const session = await requireAdmin();
   if (!uuid.safeParse(id).success) return { ok: false, message: "Mã không hợp lệ." };
-  const parsed = DealEditSchema.safeParse(Object.fromEntries(form));
+  const values: Record<string, unknown> = Object.fromEntries(form);
+  delete values.card_ids;
+  delete values.cards_present;
+  if (form.get("cards_present") === "1") values.card_ids = form.getAll("card_ids").map(String);
+  const parsed = DealEditSchema.safeParse(values);
   if (!parsed.success) return { ok: false, message: "Dữ liệu không hợp lệ.", errors: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) };
   const r = await updateDeal(id, parsed.data, session.email);
   if (r.ok) revalidatePublic();
