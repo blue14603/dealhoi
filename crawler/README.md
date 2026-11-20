@@ -58,6 +58,22 @@ quote, or when it names a card or merchant the page does not list. The model
 gets one retry with the problems; offers that still fail are listed in the
 report for manual entry. Debit-only offers are skipped.
 
+## Card pages
+
+When the adapter implements `parseCardPage`, each card page is read too:
+
+- the card's facts (annual fee, waiver terms, network, tier, minimum income,
+  short description) are extracted and checked against the page text, then
+  written into the card's entry in `stubs.json`, with the card page as its
+  source;
+- ongoing benefits on the page become deals in `bundle.json`; campaigns and
+  welcome offers are left to the promotion pages, to avoid duplicates;
+- for a card already written to an earlier `stubs.json`, nothing is
+  overwritten: the report lists "Đề xuất cập nhật thẻ" (old → new) to apply by
+  hand in `/admin/cards`.
+
+Card facts still need a person to verify them before the card is published.
+
 ## Adding a bank
 
 Create `crawler/banks/<bank>.ts` implementing `BankAdapter`

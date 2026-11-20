@@ -10,6 +10,8 @@ import { parseRobots } from "../../crawler/core/robots";
 import { amountNotes, renderReport, runCrawl, tierNotes } from "../../crawler/core/run";
 import { buildBundles } from "../../crawler/core/bundle";
 import { resolveMerchant } from "../../crawler/core/merchants";
+import { validateCardDetails, type CardDetails } from "../../crawler/core/cards";
+import { parseCardPage } from "../../crawler/banks/techcombank";
 import { parseSitemap } from "../../crawler/core/sitemap";
 import type { CrawlState } from "../../crawler/core/state";
 import type { Fetcher } from "../../crawler/core/types";
@@ -611,5 +613,115 @@ describe("merchants from the page text (full run feedback)", () => {
     expect(validateOffer(usd, { promo, today: "2026-03-01" })).toEqual([]);
     expect(amountNotes([usd])[0]).toContain("không có số tiền VND");
     expect(amountNotes([offer()])).toEqual([]);
+  });
+});
+
+describe("card pages", () => {
+  const CARD_URL = "https://techcombank.com/khach-hang-ca-nhan/chi-tieu/the/the-tin-dung/techcombank-spark";
+  const cardHtml = readFileSync("tests/fixtures/crawler/tcb-card-spark.html", "utf8");
+  const page = parseCardPage(CARD_URL, cardHtml)!;
+  const details = (over: Partial<CardDetails> = {}): CardDetails => ({
+    card_name: "Thẻ tín dụng Techcombank Spark",
+    network: "Mastercard",
+    card_tier: null,
+    annual_fee_vnd: 699000,
+    annual_fee_waiver_terms: "Hoàn phí năm đầu khi chi tiêu từ 1.5 triệu VND trong 30 ngày; từ năm thứ 2 khi chi tiêu năm trước đạt 120 triệu VND; miễn trọn đời cho Priority/Private, Inspire Max.",
+    minimum_income_vnd: null,
+    description: null,
+    evidence: ["Thẻ tín dụng Techcombank Spark có phí thường niên tiêu chuẩn là 699,000 VND/năm"],
+    ...over,
+  });
+
+  it("reads the content tiles without navigation, footer or scripts", () => {
+    expect(page.slug).toBe("techcombank-spark");
+    expect(page.title).toBe("Thẻ tín dụng Techcombank Spark");
+    expect(page.text).toContain("phí thường niên tiêu chuẩn là 699,000 VND/năm");
+    expect(page.text).toContain("tổng chi tiêu năm liền trước đạt 120 triệu VND");
+    expect(page.text).toContain("Hoàn 1% không giới hạn");
+    expect(page.text).not.toMatch(/Vay mua nhà|Hotline|dataLayer|color:red/);
+  });
+
+  it("validates card facts against the page", () => {
+    expect(validateCardDetails(details(), page)).toEqual([]);
+    expect(validateCardDetails(details({ annual_fee_vnd: 599000 }), page)).toContain("annual_fee_vnd 599000 không có trong trang");
+    expect(validateCardDetails(details({ annual_fee_vnd: 0 }), page)).toContain("annual_fee_vnd 0 nhưng trang không ghi miễn phí");
+    expect(validateCardDetails(details({ network: "Visa" }), page)).toContain("network Visa không có trong trang");
+    expect(validateCardDetails(details({ card_tier: "Platinum" }), page)).toContain('card_tier "Platinum" không có trong trang');
+    expect(validateCardDetails(details({ minimum_income_vnd: 10000000 }), page)).toContain("minimum_income_vnd 10000000 không có trong trang");
+    expect(validateCardDetails(details({ evidence: ["Phí thường niên 0 đồng trọn đời"] }), page)[0]).toContain("evidence không trích");
+  });
+
+  const index = `<sitemapindex><sitemap><loc>https://techcombank.com/vn.sitemap.vi-sitemap.xml</loc></sitemap></sitemapindex>`;
+  const urlset = `<urlset><url><loc>${CARD_URL}</loc></url></urlset>`;
+  const run = (state: CrawlState, html: string, caller: ReturnType<typeof vi.fn>, today: string) =>
+    runCrawl({
+      bank: techcombank,
+      fetcher: async (url) =>
+        url.endsWith("sitemap-index.xml")
+          ? { status: 200, text: index }
+          : url.endsWith("vi-sitemap.xml")
+            ? { status: 200, text: urlset }
+            : url === CARD_URL
+              ? { status: 200, text: html }
+              : { status: 404, text: "" },
+      caller,
+      state,
+      today,
+      retrievedAt: "2026-11-20T02:00:00.000Z",
+      categories: CATEGORY_INFO,
+      knownMerchants: [],
+    });
+  const ongoing = offer({
+    title: "Hoàn 1% không giới hạn mọi chi tiêu",
+    benefit_type: "cashback",
+    offer_type: "ongoing",
+    percentage: 1,
+    fixed_amount_vnd: null,
+    minimum_spend_vnd: null,
+    cap_is_unlimited: true,
+    merchant_scope: "general",
+    merchant_names: [],
+    category_slug: "chi-tieu-chung",
+    start_date: null,
+    end_date: null,
+    terms_and_conditions: null,
+    evidence: "Hoàn 1% không giới hạn cho mọi chi tiêu bằng thẻ Techcombank Spark Mastercard.",
+  });
+  const campaign = { ...ongoing, title: "Chiến dịch", offer_type: "temporary" as const };
+  const makeCaller = (d: CardDetails) =>
+    vi.fn(async (req: { schemaName: string }) => (req.schemaName === "card_details" ? d : { offers: [ongoing, campaign], notes: null }));
+
+  it("fills card stubs, keeps only ongoing benefits, and proposes later changes instead of overwriting", async () => {
+    const state: CrawlState = { pages: {}, lastPromoCount: null };
+    const first = await run(state, cardHtml, makeCaller(details()), "2026-11-20");
+    expect(first.cards[0]).toMatchObject({ slug: "techcombank-spark", outcome: "extracted" });
+    const stub = first.bundles.stubs.cards.find((c) => c.slug === "techcombank-spark")!;
+    expect(stub).toMatchObject({ annual_fee_vnd: 699000, network: "Mastercard", source_url: CARD_URL, verification_status: "draft" });
+    expect(first.bundles.stubs.sources.find((x) => x.url === CARD_URL)?.source_excerpt).toContain("699,000 VND");
+    expect(first.bundles.main.deals.map((d) => d.title)).toEqual(["Hoàn 1% không giới hạn mọi chi tiêu"]);
+    expect(first.bundles.main.deals[0].cards).toEqual([{ card_slug: "techcombank-spark", additional_eligibility_terms: null }]);
+    expect(renderReport(first)).toContain("| Thẻ tín dụng Techcombank Spark | 699.000 đ | Mastercard |");
+
+    // Unchanged page: no model call.
+    const idle = makeCaller(details());
+    await run(state, cardHtml, idle, "2026-11-21");
+    expect(idle).not.toHaveBeenCalled();
+
+    // The bank raises the fee: the card is not re-emitted, a change is proposed.
+    const raised = cardHtml.replace(/699,000 VND/g, "799,000 VND");
+    const later = await run(state, raised, makeCaller(details({ annual_fee_vnd: 799000, evidence: ["phí thường niên tiêu chuẩn là 799,000 VND/năm"] })), "2026-11-22");
+    expect(later.bundles.stubs.cards).toEqual([]);
+    expect(later.cards[0].changes).toEqual([{ field: "annual_fee_vnd", from: 699000, to: 799000 }]);
+    expect(renderReport(later)).toContain("annual_fee_vnd: 699000 → 799000");
+  });
+
+  it("lists cards whose facts fail validation for manual entry", async () => {
+    const state: CrawlState = { pages: {}, lastPromoCount: null };
+    const r = await run(state, cardHtml, makeCaller(details({ annual_fee_vnd: 599000 })), "2026-11-20");
+    expect(r.cards[0].outcome).toBe("needs_manual");
+    expect(renderReport(r)).toContain("## Thông tin thẻ cần nhập tay");
+    // The card still gets a stub (its ongoing benefit is valid), with the facts left empty for manual entry.
+    expect(r.bundles.stubs.cards).toHaveLength(1);
+    expect(r.bundles.stubs.cards[0]).toMatchObject({ slug: "techcombank-spark", annual_fee_vnd: null });
   });
 });

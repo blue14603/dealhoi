@@ -34,6 +34,8 @@ export interface CrawlState {
    * write new ones, so re-importing never overwrites details entered by hand.
    */
   emittedStubs?: { cards: string[]; merchants: string[] };
+  /** Card facts last read from each card page, to propose changes instead of overwriting. */
+  cardDetails?: Record<string, import("./cards").CardDetails>;
 }
 
 export function loadState(path: string): CrawlState {

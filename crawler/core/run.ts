@@ -1,4 +1,5 @@
 import { isQuotaError, type StructuredCaller } from "@/lib/ai/openai-client";
+import { cardChanges, cardPageAsPromo, extractCardDetails, type CardDetails } from "./cards";
 import { buildBundles, type Bundles } from "./bundle";
 import { extractOffers, type CategoryInfo, type ExtractionResult, type Offer } from "./extract";
 import { RobotsDisallowedError } from "./http";
@@ -66,6 +67,17 @@ export function amountNotes(offers: Offer[]): string[] {
     .map((o) => `"${o.title}": không có số tiền VND hay tỷ lệ (có thể ghi bằng ngoại tệ): ước tính tiết kiệm sẽ ở trạng thái thiếu thông tin.`);
 }
 
+export interface CardPageReport {
+  url: string;
+  slug: string;
+  outcome: "extracted" | "needs_manual" | "unchanged" | "parsed" | "unparseable" | "error";
+  details?: CardDetails;
+  problems?: string[];
+  /** Changes for a card already written to stubs.json earlier: update it by hand in /admin/cards. */
+  changes?: { field: string; from: unknown; to: unknown }[];
+  detail?: string;
+}
+
 export interface RunReport {
   bank: string;
   today: string;
@@ -74,6 +86,7 @@ export interface RunReport {
   pages: PageReport[];
   parsed: ParsedPromo[];
   unknownCardSlugs: { slug: string; title: string; key: string }[];
+  cards: CardPageReport[];
   bundles: Bundles;
 }
 
@@ -218,6 +231,75 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
     }
   }
 
+  // Card pages: facts for the card record, plus ongoing benefits as deals.
+  const cardReports: CardPageReport[] = [];
+  const newDetails = new Map<string, { details: CardDetails; url: string; excerpt: string }>();
+  if (o.bank.parseCardPage) {
+    for (const { url } of discovery.cards) {
+      const slug = url.split("/").pop()!;
+      const prior = o.state.pages[url];
+      const now = o.retrievedAt;
+      const mark = (outcome: PageOutcome, hash: string | null) => {
+        o.state.pages[url] = { hash, outcome, firstSeen: prior?.firstSeen ?? now, lastChecked: now, expiryDate: null };
+      };
+      let html: string;
+      try {
+        const res = await o.fetcher(url);
+        if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+        html = res.text;
+      } catch (e) {
+        cardReports.push({ url, slug, outcome: "error", detail: e instanceof RobotsDisallowedError ? "robots.txt không cho phép" : describeError(e) });
+        continue;
+      }
+      const page = o.bank.parseCardPage(url, html);
+      if (!page) {
+        mark("unparseable", null);
+        cardReports.push({ url, slug, outcome: "unparseable", detail: "Không đọc được nội dung trang thẻ" });
+        continue;
+      }
+      if (!o.force && prior?.hash === page.contentHash && prior.outcome !== "error") {
+        cardReports.push({ url, slug, outcome: "unchanged" });
+        continue;
+      }
+      if (!o.caller || llmStopped) {
+        cardReports.push({ url, slug, outcome: "parsed" });
+        continue;
+      }
+      try {
+        log(`Extracting card ${url}`);
+        const facts = await extractCardDetails(o.caller, page);
+        const ref = { key: slug, title: facts.details?.card_name ?? page.title, slug };
+        const promo = cardPageAsPromo(page, ref);
+        const extraction = await extractOffers(o.caller, promo, {
+          today: o.today,
+          categorySlugs: o.categories.map((c) => c.slug),
+          categories: o.categories,
+        });
+        // Campaigns and welcome offers have their own promotion pages; keep only ongoing card benefits.
+        const ongoing = extraction.accepted.filter((x) => x.offer_type === "ongoing");
+        if (ongoing.length) results.push({ promo, offers: ongoing });
+        consecutiveLlmErrors = 0;
+        mark(facts.details ? "extracted" : "needs_manual", page.contentHash);
+        if (facts.details) newDetails.set(slug, { details: facts.details, url, excerpt: page.text.slice(0, 5000) });
+        cardReports.push({
+          url,
+          slug,
+          outcome: facts.details ? "extracted" : "needs_manual",
+          ...(facts.details ? { details: facts.details } : {}),
+          ...(facts.problems.length ? { problems: facts.problems } : {}),
+        });
+      } catch (e) {
+        const reason = describeError(e);
+        mark("error", null);
+        cardReports.push({ url, slug, outcome: "error", detail: `LLM: ${reason}` });
+        if (++consecutiveLlmErrors >= MAX_CONSECUTIVE_LLM_ERRORS || isQuotaError(reason) || /HTTP 401/.test(reason)) {
+          llmStopped = reason;
+          warnings.push(`Đã ngừng gọi AI sau lỗi: ${reason}.`);
+        }
+      }
+    }
+  }
+
   if (fetched >= 5 && consecutiveEmpty >= 5) {
     warnings.push("Nhiều trang liên tiếp không có dữ liệu ưu đãi: có thể trang đã đổi giao diện (data-cf).");
   }
@@ -231,6 +313,33 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
     cardPageBySlug,
   });
 
+  // Fill card stubs with the facts read from card pages (creating stubs for cards no promotion mentions).
+  for (const [slug, { details, url, excerpt }] of newDetails) {
+    let stub = bundles.stubs.cards.find((c) => c.slug === slug);
+    if (!stub) {
+      stub = { slug, bank_slug: o.bank.slug, name: details.card_name, official_url: url, source_url: url, verification_status: "draft", is_active: true };
+      bundles.stubs.cards.push(stub);
+    }
+    for (const f of ["network", "card_tier", "annual_fee_vnd", "annual_fee_waiver_terms", "minimum_income_vnd", "description"] as const) {
+      if (details[f] !== null) stub[f] = details[f];
+    }
+    const source = bundles.stubs.sources.find((s) => s.url === url);
+    if (source) source.source_excerpt = excerpt;
+    else {
+      bundles.stubs.sources.push({
+        url,
+        publisher: o.bank.name,
+        source_type: "official_bank",
+        source_excerpt: excerpt,
+        published_at: null,
+        retrieved_at: o.retrievedAt,
+        verified_at: null,
+        verification_notes: null,
+        is_demo: false,
+      });
+    }
+  }
+
   // Only new stubs: the importer overwrites every field of an existing card.
   const emitted = o.force ? { cards: [], merchants: [] } : (o.state.emittedStubs ?? { cards: [], merchants: [] });
   const known = { cards: new Set(emitted.cards), merchants: new Set(emitted.merchants) };
@@ -243,6 +352,19 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
     cards: [...new Set([...previous.cards, ...bundles.stubs.cards.map((c) => String(c.slug))])].sort(),
     merchants: [...new Set([...previous.merchants, ...bundles.stubs.merchants.map((m) => String(m.slug))])].sort(),
   };
+
+  // Cards already written to an earlier stubs.json are never overwritten: propose the changes instead.
+  const previousDetails = o.state.cardDetails ?? {};
+  for (const report of cardReports) {
+    const fresh = newDetails.get(report.slug);
+    if (!fresh) continue;
+    if (known.cards.has(report.slug)) {
+      const changes = cardChanges(previousDetails[report.slug], fresh.details);
+      if (changes.length) report.changes = changes;
+    }
+    previousDetails[report.slug] = fresh.details;
+  }
+  o.state.cardDetails = previousDetails;
 
   return {
     bank: o.bank.slug,
@@ -258,6 +380,7 @@ export async function runCrawl(o: RunOptions): Promise<RunReport> {
     pages,
     parsed: parsedAll,
     unknownCardSlugs: [...unknownCards.values()],
+    cards: cardReports,
     bundles,
   };
 }
@@ -279,7 +402,39 @@ export function renderReport(r: RunReport): string {
     "",
   );
 
+  if (r.cards.length) {
+    const c = (k: CardPageReport["outcome"]) => r.cards.filter((x) => x.outcome === k).length;
+    lines.splice(
+      lines.length - 1,
+      0,
+      `- Trang thẻ đã đọc: ${r.cards.length} — trích xuất ${c("extracted")}, cần nhập tay ${c("needs_manual")}, không đổi ${c("unchanged")}, chỉ phân tích ${c("parsed")}, không đọc được ${c("unparseable")}, lỗi ${c("error")}`,
+    );
+  }
   if (r.warnings.length) lines.push("## Cảnh báo", ...r.warnings.map((w) => `- ⚠️ ${w}`), "");
+  const vnd = (n: unknown) => (typeof n === "number" ? `${n.toLocaleString("vi-VN")} đ` : "—");
+  const read = r.cards.filter((x) => x.details);
+  if (read.length) {
+    lines.push(
+      "## Thông tin thẻ đọc được",
+      "Đã điền vào stubs.json (thẻ mới). Vẫn cần đối chiếu và xác minh trong /admin/cards.",
+      "",
+      "| Thẻ | Phí thường niên | Tổ chức | Hạng | Thu nhập tối thiểu |",
+      "| --- | --- | --- | --- | --- |",
+      ...read.map((x) => `| ${x.details!.card_name} | ${vnd(x.details!.annual_fee_vnd)} | ${x.details!.network ?? "—"} | ${x.details!.card_tier ?? "—"} | ${vnd(x.details!.minimum_income_vnd)} |`),
+      "",
+    );
+  }
+  const changed = r.cards.filter((x) => x.changes?.length);
+  if (changed.length) {
+    lines.push("## Đề xuất cập nhật thẻ", "Thẻ đã nhập trước đây không bị ghi đè. Cập nhật tay trong /admin/cards nếu đúng:", "");
+    for (const x of changed) {
+      lines.push(`### ${x.details?.card_name ?? x.slug}`, x.url, ...x.changes!.map((ch) => `- ${ch.field}: ${ch.from ?? "—"} → ${ch.to ?? "—"}`), "");
+    }
+  }
+  const manualCards = r.cards.filter((x) => x.outcome === "needs_manual" || x.outcome === "unparseable" || x.outcome === "error");
+  if (manualCards.length) {
+    lines.push("## Thông tin thẻ cần nhập tay", ...manualCards.map((x) => `- ${x.url}: ${x.problems?.join("; ") ?? x.detail ?? x.outcome}`), "");
+  }
   if (r.unknownCardSlugs.length) {
     lines.push("## Thẻ không khớp trang thẻ nào", "Thêm vào `CARD_KEY_ALIASES` nếu slug thẻ khác với trang thẻ:", "");
     for (const c of r.unknownCardSlugs) lines.push(`- \`${c.key}\` → \`${c.slug}\` (${c.title})`);

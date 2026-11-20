@@ -62,6 +62,8 @@ export interface BankAdapter {
   discover(fetcher: Fetcher): Promise<Discovery>;
   /** Returns null when the page has no recognisable promotion data. */
   parse(url: string, html: string): ParsedPromo | null;
+  /** Reads a card product page into plain text; omit when the bank has no card pages. */
+  parseCardPage?(url: string, html: string): import("./cards").ParsedCardPage | null;
   /** Maps the bank's merchant key to a DealHoi merchant slug candidate. */
   merchantSlug(key: string): string;
 }

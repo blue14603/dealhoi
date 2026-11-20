@@ -17,6 +17,7 @@
 import { createHash } from "node:crypto";
 import { htmlToText, readAttribute, readLinks } from "../core/html";
 import { collectSitemapUrls } from "../core/sitemap";
+import type { ParsedCardPage } from "../core/cards";
 import type { BankAdapter, BankCardRef, Discovery, Fetcher, ParsedPromo } from "../core/types";
 
 const ORIGIN = "https://techcombank.com";
@@ -217,6 +218,34 @@ export function parsePromotionPage(url: string, html: string): ParsedPromo | nul
   };
 }
 
+/**
+ * Card pages have no embedded JSON: the content sits in "list-tile" blocks
+ * (fees, benefits, conditions). Read those blocks; fall back to the page body
+ * without navigation, header, footer and scripts.
+ */
+export function parseCardPage(url: string, html: string): ParsedCardPage | null {
+  const slug = url.replace(/\/$/, "").split("/").pop()!;
+  const title = htmlToText(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? html.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? slug).trim();
+  const clean = html.replace(/<(script|style|noscript|svg)\b[\s\S]*?<\/\1>/gi, " ");
+
+  const blocks: string[] = [];
+  const parts = clean.split(/class="list-tile__card-content"/i).slice(1);
+  for (const part of parts) {
+    const end = part.search(/class="list-tile(?!__card-body)|<footer\b/i);
+    const inner = (end > 0 ? part.slice(0, end) : part).slice(part.indexOf(">") + 1, 8000);
+    const text = htmlToText(inner);
+    if (text && !blocks.includes(text)) blocks.push(text);
+  }
+  let body = blocks.join("\n\n");
+  if (body.length < 200) {
+    const main = clean.match(/<main\b[\s\S]*?<\/main>/i)?.[0] ?? clean.match(/<body\b[\s\S]*<\/body>/i)?.[0] ?? clean;
+    body = htmlToText(main.replace(/<(nav|header|footer)\b[\s\S]*?<\/\1>/gi, " ")).slice(0, 30000);
+  }
+  if (body.length < 100) return null;
+  const text = `${title}\n\n${body}`.trim();
+  return { url, slug, title, text, contentHash: createHash("sha256").update(text).digest("hex") };
+}
+
 export const techcombank: BankAdapter & { lastBlocked: string[] } = {
   slug: "techcombank",
   name: "Techcombank",
@@ -230,6 +259,7 @@ export const techcombank: BankAdapter & { lastBlocked: string[] } = {
     return discovery;
   },
   parse: parsePromotionPage,
+  parseCardPage,
   merchantSlug(key: string) {
     return key
       .toLowerCase()
